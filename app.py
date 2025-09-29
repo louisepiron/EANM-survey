@@ -49,7 +49,7 @@ st.markdown(
         padding-bottom: 1rem;
       }}
 
-      /* H1 form title bar (solid green), H1 text inside (slightly smaller) */
+      /* H1 form title bar (solid green), H1 text inside (1.6rem) */
       .brand-header {{
         background: {BRAND_PRIMARY};
         border-radius: 12px;
@@ -59,9 +59,9 @@ st.markdown(
       }}
       .brand-header h1 {{
         font-weight: 850;
-        font-size: 2.0rem;     /* H1 slightly smaller */
+        font-size: 1.6rem;     /* H1 per request */
         margin: 0;
-        line-height: 1.1;
+        line-height: 1.15;
       }}
 
       /* H2 section/question titles */
@@ -151,28 +151,33 @@ st.markdown(
         border-color: {BRAND_PRIMARY} !important;
       }}
 
-      /* SortableJS containers (Pool + Boxes 1..5) */
-      /* Make containers (the drop zones) white with light grey border */
-      ul.sortable, .sortable, .sortable-container {{
+      /* Sortable single list (ranking all attributes) */
+      ul.sortable, .sortable {{
         background: #FFFFFF !important;
         border: 2px dashed {DIVIDER_COLOR} !important;
         border-radius: 10px !important;
-        min-height: 52px; /* so empty boxes are clearly visible */
         padding: 8px !important;
-        margin-bottom: 10px !important;
         list-style: none !important;
+        counter-reset: rank;
       }}
-
-      /* Sortable items (attributes) with green styling */
       ul.sortable li,
       .sortable li,
       li.sortable-item {{
-        background: #E8F6DC !important;                 /* green-tinted */
+        background: #E8F6DC !important;                 /* green-tinted attribute items */
         border: 2px solid {BRAND_PRIMARY} !important;   /* green border */
         border-radius: 10px !important;
         padding: 10px 12px !important;
         margin-bottom: 8px !important;
         list-style: none !important;
+        display: flex; align-items: center;
+      }}
+      /* numeric prefix 1., 2., 3., ... */
+      ul.sortable li::before {{
+        counter-increment: rank;
+        content: counter(rank) ".";
+        font-weight: 800;
+        color: {BRAND_PRIMARY};
+        margin-right: 10px;
       }}
       /* During active drag */
       li.sortable-chosen,
@@ -181,20 +186,6 @@ st.markdown(
         background: #D9F0C2 !important;
         border-color: {BRAND_PRIMARY} !important;
         opacity: 0.95;
-      }}
-
-      /* Labels row under the Pool to indicate boxes 1..5 */
-      .rank-labels {{
-        display: grid;
-        grid-template-columns: 1fr;
-        row-gap: 10px;
-        margin: 6px 0 8px 0;
-      }}
-      .rank-label {{
-        font-weight: 700;
-        font-size: 0.95rem;
-        color: #4a4a4a;
-        margin: 0 0 4px 0;
       }}
 
       /* Progress bar (solid) */
@@ -221,13 +212,8 @@ def init_state():
         "answers": {},
         "submitted": False,
         "error_msg": "",
-        # Brand ranking state
-        "brand_pool": None,            # list[str]
-        "brand_rank_1": [],
-        "brand_rank_2": [],
-        "brand_rank_3": [],
-        "brand_rank_4": [],
-        "brand_rank_5": [],
+        # Brand ranking state (single list to rank all attributes)
+        "brand_rank_order": None,  # list[str]
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -381,9 +367,9 @@ elif st.session_state.page == 2:
             )
             st.markdown('<hr class="divider" />', unsafe_allow_html=True)
 
-            # Brand ranking with Pool + 5 true connected drop-boxes (1..5)
+            # Brand ranking — single sortable list (rank ALL attributes top→bottom)
             st.markdown('<h2 class="section-title">How would you describe the IBA brand?</h2>', unsafe_allow_html=True)
-            st.caption("Drag attributes from the Pool into the boxes 1 (most representative) to 5 (least).")
+            st.caption("Drag to reorder: top = most representative, bottom = least.")
 
             default_attrs = [
                 "Reliable",
@@ -394,84 +380,33 @@ elif st.session_state.page == 2:
                 "Flexible",
                 "Expert-Led",
             ]
+            if st.session_state.brand_rank_order is None:
+                st.session_state.brand_rank_order = default_attrs
 
-            # Initialize lists
-            if st.session_state.brand_pool is None:
-                st.session_state.brand_pool = default_attrs.copy()
-                st.session_state.brand_rank_1 = []
-                st.session_state.brand_rank_2 = []
-                st.session_state.brand_rank_3 = []
-                st.session_state.brand_rank_4 = []
-                st.session_state.brand_rank_5 = []
-
-            # Render Pool label
-            st.markdown("Pool")
             dnd_ok = False
             try:
                 from streamlit_sortables import sort_items  # pip install streamlit-sortables
-
-                # Items structure: [Pool, 1, 2, 3, 4, 5]
-                items = [
-                    st.session_state.brand_pool,
-                    st.session_state.brand_rank_1,
-                    st.session_state.brand_rank_2,
-                    st.session_state.brand_rank_3,
-                    st.session_state.brand_rank_4,
-                    st.session_state.brand_rank_5,
-                ]
-
-                # Render the connected lists (vertical stack)
-                new_lists = sort_items(
-                    items,
-                    multi_containers=True,
+                new_order = sort_items(
+                    st.session_state.brand_rank_order,
                     direction="vertical",
-                    key="brand_sort_multi",
+                    key="brand_sort_single",
                 )
-
-                if isinstance(new_lists, list) and len(new_lists) == 6:
-                    st.session_state.brand_pool = new_lists[0]
-                    st.session_state.brand_rank_1 = new_lists[1]
-                    st.session_state.brand_rank_2 = new_lists[2]
-                    st.session_state.brand_rank_3 = new_lists[3]
-                    st.session_state.brand_rank_4 = new_lists[4]
-                    st.session_state.brand_rank_5 = new_lists[5]
+                if isinstance(new_order, list) and len(new_order) == len(default_attrs):
+                    st.session_state.brand_rank_order = new_order
                     dnd_ok = True
-
-                # Show numeric labels under Pool to make it obvious these are the target boxes
-                st.markdown(
-                    '<div class="rank-labels">'
-                    '<div class="rank-label">1</div>'
-                    '<div class="rank-label">2</div>'
-                    '<div class="rank-label">3</div>'
-                    '<div class="rank-label">4</div>'
-                    '<div class="rank-label">5</div>'
-                    "</div>",
-                    unsafe_allow_html=True,
-                )
-
             except Exception:
                 dnd_ok = False
 
             if not dnd_ok:
-                # Fallback: 5 pickers ensuring uniqueness
-                st.info("Drag-and-drop unavailable. Please pick your top 5 attributes in order.")
+                # Fallback: show numbered select boxes to rank all items
+                st.info("Drag-and-drop unavailable. Please rank all attributes from most to least.")
                 remaining = default_attrs.copy()
-                r1 = st.selectbox("Rank 1 (most representative)", remaining, index=0, key="rank_sel_1")
-                remaining.remove(r1)
-                r2 = st.selectbox("Rank 2", remaining, index=0, key="rank_sel_2")
-                remaining.remove(r2)
-                r3 = st.selectbox("Rank 3", remaining, index=0, key="rank_sel_3")
-                remaining.remove(r3)
-                r4 = st.selectbox("Rank 4", remaining, index=0, key="rank_sel_4")
-                remaining.remove(r4)
-                r5 = st.selectbox("Rank 5 (least of the five)", remaining, index=0, key="rank_sel_5")
-
-                st.session_state.brand_rank_1 = [r1]
-                st.session_state.brand_rank_2 = [r2]
-                st.session_state.brand_rank_3 = [r3]
-                st.session_state.brand_rank_4 = [r4]
-                st.session_state.brand_rank_5 = [r5]
-                st.session_state.brand_pool = remaining
+                ranked: List[str] = []
+                for i in range(len(default_attrs)):
+                    choice = st.selectbox(f"Rank {i+1}", remaining, index=0, key=f"rank_all_{i}")
+                    ranked.append(choice)
+                    remaining.remove(choice)
+                st.session_state.brand_rank_order = ranked
 
             st.markdown('<hr class="divider" />', unsafe_allow_html=True)
             cols = st.columns(2)
@@ -484,25 +419,14 @@ elif st.session_state.page == 2:
                 if missing:
                     st.toast("Please complete the required fields.", icon="⚠️")
                 else:
-                    ranks = [
-                        st.session_state.brand_rank_1,
-                        st.session_state.brand_rank_2,
-                        st.session_state.brand_rank_3,
-                        st.session_state.brand_rank_4,
-                        st.session_state.brand_rank_5,
-                    ]
-                    if not all(len(r) == 1 for r in ranks):
-                        st.toast("Please place exactly one attribute in each box 1–5.", icon="⚠️")
-                    else:
-                        ranked = [r[0] for r in ranks]
-                        st.session_state.answers.update(
-                            {
-                                "first_touch": first_touch,
-                                "solutions": solutions,
-                                "brand_attributes_ranked": ranked,
-                            }
-                        )
-                        navigate(+1)
+                    st.session_state.answers.update(
+                        {
+                            "first_touch": first_touch,
+                            "solutions": solutions,
+                            "brand_attributes_ranked": st.session_state.brand_rank_order,
+                        }
+                    )
+                    navigate(+1)
 
     else:
         with st.form("form_page_2_first", clear_on_submit=False):
