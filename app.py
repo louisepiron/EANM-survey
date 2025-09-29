@@ -59,15 +59,15 @@ st.markdown(
       }}
       .brand-header h1 {{
         font-weight: 850;
-        font-size: 3rem;       /* H1 size */
+        font-size: 2.2rem;     /* H1 a bit smaller per request */
         margin: 0;
-        line-height: 1.05;
+        line-height: 1.1;
       }}
 
       /* H2 section/question titles */
       h2.section-title {{
         font-weight: 750;
-        font-size: 1.5rem;     /* H2 size */
+        font-size: 1.45rem;    /* H2 */
         margin: 0 0 0.5rem 0;
         color: #1c1c1c;
       }}
@@ -151,7 +151,7 @@ st.markdown(
         border-color: {BRAND_PRIMARY} !important;
       }}
 
-      /* Drag-and-drop list items (light grey default) */
+      /* Drag-and-drop list items: light grey by default */
       ul.sortable li,
       .sortable li,
       li.sortable-item {{
@@ -162,7 +162,7 @@ st.markdown(
         margin-bottom: 8px !important;
         list-style: none !important;
       }}
-      /* Active drag states -> green so users see the interaction */
+      /* Active drag states -> green so users see interaction */
       li.sortable-chosen,
       li.sortable-ghost,
       li.sortable-drag {{
@@ -170,18 +170,29 @@ st.markdown(
         border-color: {BRAND_PRIMARY} !important;
       }}
 
-      /* Persistent 'touched' indicator chips below the list */
-      .chips {{ display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }}
-      .chip {{
+      /* Pool (attributes to drag) — display as green chips above the DnD lists */
+      .pool-chips {{ display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0; }}
+      .pool-chips .chip {{
         padding: 6px 10px;
         border-radius: 999px;
-        border: 2px solid {DIVIDER_COLOR};
-        background: #F5F6F7;
+        background: #E8F6DC;                /* green-tinted background */
+        border: 2px solid {BRAND_PRIMARY};  /* green border */
         font-size: 0.95rem;
       }}
-      .chip.touched {{
-        border-color: {BRAND_PRIMARY};
-        background: #E8F6DC;
+
+      /* Rank slots visual wrappers (white with light grey border) */
+      .rank-slot {{
+        background: #FFFFFF;
+        border: 2px dashed {DIVIDER_COLOR};
+        border-radius: 10px;
+        padding: 8px;
+        margin-bottom: 10px;
+      }}
+      .rank-slot h3 {{
+        margin: 0 0 6px 0;
+        font-size: 1rem;
+        font-weight: 700;
+        color: #4a4a4a;
       }}
 
       /* Progress bar (solid) */
@@ -208,10 +219,14 @@ def init_state():
         "answers": {},
         "submitted": False,
         "error_msg": "",
-        # Brand ranking states
-        "brand_attrs_order": None,
-        "brand_attrs_prev": None,
-        "brand_attrs_touched": set(),
+        # Brand ranking state
+        "brand_pool": None,            # list[str]
+        "brand_rank_1": [],            # each slot is a list to support DnD API (we enforce 1 item)
+        "brand_rank_2": [],
+        "brand_rank_3": [],
+        "brand_rank_4": [],
+        "brand_rank_5": [],
+        "brand_prev_lists": None,      # track to detect changes
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -365,8 +380,10 @@ elif st.session_state.page == 2:
             )
             st.markdown('<hr class="divider" />', unsafe_allow_html=True)
 
+            # Brand ranking with 5 empty slots (1..5). Drag attributes from pool to slots.
             st.markdown('<h2 class="section-title">How would you describe the IBA brand?</h2>', unsafe_allow_html=True)
-            st.caption("Drag and drop to rank from 1 (most representative) to 7 (least).")
+            st.caption("Drag attributes into the boxes from 1 (most representative) to 5 (least).")
+
             default_attrs = [
                 "Reliable",
                 "Innovative",
@@ -376,48 +393,84 @@ elif st.session_state.page == 2:
                 "Flexible",
                 "Expert-Led",
             ]
-            if st.session_state.brand_attrs_order is None:
-                st.session_state.brand_attrs_order = default_attrs
-                st.session_state.brand_attrs_prev = default_attrs.copy()
-                st.session_state.brand_attrs_touched = set()
+            # Initialize pool/slots
+            if st.session_state.brand_pool is None:
+                st.session_state.brand_pool = default_attrs.copy()
+                st.session_state.brand_rank_1 = []
+                st.session_state.brand_rank_2 = []
+                st.session_state.brand_rank_3 = []
+                st.session_state.brand_rank_4 = []
+                st.session_state.brand_rank_5 = []
+                st.session_state.brand_prev_lists = None
 
-            ranked = None
-            try:
-                from streamlit_sortables import sort_items  # requires streamlit-sortables
-                ranked = sort_items(
-                    st.session_state.brand_attrs_order,
-                    direction="vertical",
-                    key="brand_sort",
-                )
-                # Track 'touched' items persistently: any item whose index differs from previous render
-                if ranked:
-                    prev = st.session_state.brand_attrs_prev or []
-                    moved = {item for item in ranked if prev and ranked.index(item) != prev.index(item)}
-                    if moved:
-                        st.session_state.brand_attrs_touched |= moved
-                    st.session_state.brand_attrs_prev = ranked.copy()
-                    st.session_state.brand_attrs_order = ranked
-            except Exception:
-                # Fallback: selection order via multiselect
-                ranked = st.multiselect(
-                    "If drag-and-drop is unavailable, tap attributes in order (top = most representative)",
-                    default_attrs,
-                    default=default_attrs,
-                    key="brand_attrs_fallback",
-                    help="Your selection order will be recorded as the ranking.",
-                )
-                st.session_state.brand_attrs_order = ranked
-                # When using fallback, mark all tapped as touched
-                st.session_state.brand_attrs_touched = set(ranked)
-
-            # Persistent visual indicator chips (light grey → green once touched)
-            if st.session_state.brand_attrs_order:
-                chips_html = ['<div class="chips">']
-                for name in st.session_state.brand_attrs_order:
-                    cls = "chip touched" if name in st.session_state.brand_attrs_touched else "chip"
-                    chips_html.append(f'<div class="{cls}">{name}</div>')
-                chips_html.append("</div>")
+            # Show pool as green chips (visual cue for what to drag)
+            if st.session_state.brand_pool:
+                chips_html = ['<div class="pool-chips">'] + [
+                    f'<div class="chip">{name}</div>' for name in st.session_state.brand_pool
+                ] + ['</div>']
                 st.markdown("".join(chips_html), unsafe_allow_html=True)
+
+            # Drag-and-drop across 6 lists: pool + 5 rank slots
+            dnd_worked = False
+            try:
+                from streamlit_sortables import sort_items  # pip install streamlit-sortables
+
+                # Items structure: list of lists (pool first, then ranks)
+                items = [
+                    st.session_state.brand_pool,
+                    st.session_state.brand_rank_1,
+                    st.session_state.brand_rank_2,
+                    st.session_state.brand_rank_3,
+                    st.session_state.brand_rank_4,
+                    st.session_state.brand_rank_5,
+                ]
+
+                # Labels for display (we'll render our own slot labels around it)
+                st.markdown('<div class="rank-slot"><h3>1</h3></div>', unsafe_allow_html=True)
+                st.markdown('<div class="rank-slot"><h3>2</h3></div>', unsafe_allow_html=True)
+                st.markdown('<div class="rank-slot"><h3>3</h3></div>', unsafe_allow_html=True)
+                st.markdown('<div class="rank-slot"><h3>4</h3></div>', unsafe_allow_html=True)
+                st.markdown('<div class="rank-slot"><h3>5</h3></div>', unsafe_allow_html=True)
+
+                # Invoke multi-container sort (SortableJS connected lists)
+                results = sort_items(
+                    items,
+                    multi_containers=True,   # supports multiple connected lists
+                    direction="vertical",
+                    key="brand_sort_multi",
+                )
+                if isinstance(results, list) and len(results) == 6:
+                    st.session_state.brand_pool = results[0]
+                    st.session_state.brand_rank_1 = results[1]
+                    st.session_state.brand_rank_2 = results[2]
+                    st.session_state.brand_rank_3 = results[3]
+                    st.session_state.brand_rank_4 = results[4]
+                    st.session_state.brand_rank_5 = results[5]
+                    dnd_worked = True
+            except Exception:
+                dnd_worked = False
+
+            if not dnd_worked:
+                # Fallback to 5 pickers ensuring uniqueness
+                st.info("Drag-and-drop unavailable. Please pick your top 5 attributes in order.")
+                remaining = default_attrs.copy()
+                r1 = st.selectbox("Rank 1 (most representative)", remaining, index=0, key="rank_sel_1")
+                remaining.remove(r1)
+                r2 = st.selectbox("Rank 2", remaining, index=0, key="rank_sel_2")
+                remaining.remove(r2)
+                r3 = st.selectbox("Rank 3", remaining, index=0, key="rank_sel_3")
+                remaining.remove(r3)
+                r4 = st.selectbox("Rank 4", remaining, index=0, key="rank_sel_4")
+                remaining.remove(r4)
+                r5 = st.selectbox("Rank 5 (least of the five)", remaining, index=0, key="rank_sel_5")
+
+                st.session_state.brand_rank_1 = [r1]
+                st.session_state.brand_rank_2 = [r2]
+                st.session_state.brand_rank_3 = [r3]
+                st.session_state.brand_rank_4 = [r4]
+                st.session_state.brand_rank_5 = [r5]
+                # pool becomes the unused attributes
+                st.session_state.brand_pool = remaining
 
             st.markdown('<hr class="divider" />', unsafe_allow_html=True)
             cols = st.columns(2)
@@ -430,14 +483,26 @@ elif st.session_state.page == 2:
                 if missing:
                     st.toast("Please complete the required fields.", icon="⚠️")
                 else:
-                    st.session_state.answers.update(
-                        {
-                            "first_touch": first_touch,
-                            "solutions": solutions,
-                            "brand_attributes_ranked": st.session_state.brand_attrs_order,
-                        }
-                    )
-                    navigate(+1)
+                    # Validate exactly one item in each rank 1..5
+                    ranks = [
+                        st.session_state.brand_rank_1,
+                        st.session_state.brand_rank_2,
+                        st.session_state.brand_rank_3,
+                        st.session_state.brand_rank_4,
+                        st.session_state.brand_rank_5,
+                    ]
+                    if not all(len(r) == 1 for r in ranks):
+                        st.toast("Please place exactly one attribute in each box 1–5.", icon="⚠️")
+                    else:
+                        ranked = [r[0] for r in ranks]
+                        st.session_state.answers.update(
+                            {
+                                "first_touch": first_touch,
+                                "solutions": solutions,
+                                "brand_attributes_ranked": ranked,
+                            }
+                        )
+                        navigate(+1)
 
     else:
         with st.form("form_page_2_first", clear_on_submit=False):
