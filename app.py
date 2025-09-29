@@ -80,10 +80,11 @@ st.markdown(
         margin: 10px 0 14px 0;
       }}
 
-      /* Buttons (force solid green everywhere, including form submit buttons) */
+      /* BUTTONS — force solid green (covers primary/secondary/form buttons) */
       .stButton > button,
       .stForm .stButton > button,
-      button[kind="primary"],
+      button,
+      [data-testid="baseButton-secondary"],
       [data-testid="baseButton-primary"] {{
           height: 56px;
           font-size: 1.05rem;
@@ -94,7 +95,8 @@ st.markdown(
       }}
       .stButton > button:hover,
       .stForm .stButton > button:hover,
-      button[kind="primary"]:hover,
+      button:hover,
+      [data-testid="baseButton-secondary"]:hover,
       [data-testid="baseButton-primary"]:hover {{
           filter: brightness(0.98);
       }}
@@ -103,7 +105,7 @@ st.markdown(
           opacity: 0.6 !important;
       }}
 
-      /* Answer zones: light gray by default, green on focus/active */
+      /* ANSWER ZONES: light gray by default, green when focused/active */
 
       /* Select and Multiselect (BaseWeb Select) */
       div[data-baseweb="select"] > div {{
@@ -149,16 +151,24 @@ st.markdown(
         border-color: {BRAND_PRIMARY} !important;
       }}
 
-      /* Inputs and touch targets (text sizes + accents) */
-      .stTextInput input, .stSelectbox, .stMultiSelect, .stTextArea textarea {{
-          font-size: 1.05rem !important;
+      /* Drag-and-drop list items (light grey default; green when selected/dragging) */
+      /* The SortableJS library adds these classes during interaction */
+      ul.sortable li,
+      .sortable li,
+      li.sortable-item {{
+        background: #F5F6F7 !important;                    /* light grey */
+        border: 2px solid {DIVIDER_COLOR} !important;
+        border-radius: 10px !important;
+        padding: 10px 12px !important;
+        margin-bottom: 8px !important;
+        list-style: none !important;
       }}
-      .stRadio label, .stSelectbox label, .stMultiSelect label, .stTextInput label, .stTextArea label {{
-          font-weight: 600;
-          color: #1c1c1c;
-      }}
-      input[type="radio"], input[type="checkbox"] {{
-          accent-color: {BRAND_PRIMARY};
+      /* Chosen/dragging/ghost states -> turn green */
+      li.sortable-chosen,
+      li.sortable-ghost,
+      li.sortable-drag {{
+        background: #E8F6DC !important;                   /* light green fill */
+        border-color: {BRAND_PRIMARY} !important;         /* green border */
       }}
 
       /* Progress bar brand (solid) */
@@ -318,7 +328,7 @@ elif st.session_state.page == 2:
             )
             st.markdown('<hr class="divider" />', unsafe_allow_html=True)
 
-            st.markdown('<div class="title">Which of our solutions have you used or know best?</div>', unsafe_allow_html=True)
+            st.markdown('<div class="title">Have you purchased any of the following solutions?</div>', unsafe_allow_html=True)
             solutions = st.multiselect(
                 "Select all that apply",
                 [
@@ -329,6 +339,8 @@ elif st.session_state.page == 2:
                     "Cyclone® 70",
                     "Synthera®",
                     "Cassy®",
+                    "Integralab®",
+                    "Cylcone® 18/9",
                 ],
                 key="solutions",
             )
@@ -405,7 +417,7 @@ elif st.session_state.page == 2:
 # Page 3
 elif st.session_state.page == 3:
     with st.form("form_page_3", clear_on_submit=False):
-        st.markdown('<div class="title">Where do you consume professional content?</div>', unsafe_allow_html=True)
+        st.markdown('<div class="title">Through which channels do you consume professional content?</div>', unsafe_allow_html=True)
         channels = st.multiselect(
             "Select all that apply",
             [
