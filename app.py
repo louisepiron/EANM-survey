@@ -26,7 +26,7 @@ FONT_STACK = "'Simplon Norm', Arial, sans-serif"
 LOGO_PATH = "assets/logo.png"  # Place your logo file here (PNG)
 
 # ----------------------------
-# Global styles (branding)
+# Global styles (clean CSS + semantic headings)
 # ----------------------------
 st.markdown(
     f"""
@@ -49,7 +49,7 @@ st.markdown(
         padding-bottom: 1rem;
       }}
 
-      /* Branded header bar (solid color) */
+      /* H1 form title bar (solid green), H1 text inside */
       .brand-header {{
         background: {BRAND_PRIMARY};
         border-radius: 12px;
@@ -57,30 +57,30 @@ st.markdown(
         margin-bottom: 10px;
         color: white;
       }}
-      .brand-title {{
+      .brand-header h1 {{
         font-weight: 850;
-        font-size: 2.8rem; /* large title to match ~64px logo height */
+        font-size: 3rem;       /* H1 size */
         margin: 0;
         line-height: 1.05;
       }}
 
-      /* Section titles and subtle text */
-      .title {{
-          font-weight: 750;
-          font-size: 1.35rem;
-          margin: 0 0 0.5rem 0;
-          color: #1c1c1c;
+      /* H2 section/question titles */
+      h2.section-title {{
+        font-weight: 750;
+        font-size: 1.5rem;     /* H2 size */
+        margin: 0 0 0.5rem 0;
+        color: #1c1c1c;
       }}
-      .subtle {{
-          color: {BRAND_NEUTRAL};
-      }}
+
+      /* Subtle text + dividers */
+      .subtle {{ color: {BRAND_NEUTRAL}; }}
       hr.divider {{
         border: none;
         border-top: 1px solid {DIVIDER_COLOR};
         margin: 10px 0 14px 0;
       }}
 
-      /* BUTTONS — force solid green (covers primary/secondary/form buttons) */
+      /* Buttons — force solid green */
       .stButton > button,
       .stForm .stButton > button,
       button,
@@ -105,17 +105,17 @@ st.markdown(
           opacity: 0.6 !important;
       }}
 
-      /* ANSWER ZONES: light gray by default, green when focused/active */
+      /* Answer zones: light gray by default; green on focus/active */
 
-      /* Select and Multiselect (BaseWeb Select) */
+      /* Select/Multiselect (BaseWeb Select) */
       div[data-baseweb="select"] > div {{
-        border: 2px solid {DIVIDER_COLOR} !important;     /* default light gray */
+        border: 2px solid {DIVIDER_COLOR} !important;
         border-radius: 10px !important;
         transition: border-color 120ms ease-in-out;
       }}
       div[data-baseweb="select"]:focus-within > div,
       div[data-baseweb="select"][aria-expanded="true"] > div {{
-        border-color: {BRAND_PRIMARY} !important;          /* green when focused/open */
+        border-color: {BRAND_PRIMARY} !important;
       }}
 
       /* Text input */
@@ -151,30 +151,41 @@ st.markdown(
         border-color: {BRAND_PRIMARY} !important;
       }}
 
-      /* Drag-and-drop list items (light grey default; green when selected/dragging) */
-      /* The SortableJS library adds these classes during interaction */
+      /* Drag-and-drop list items (light grey default) */
       ul.sortable li,
       .sortable li,
       li.sortable-item {{
-        background: #F5F6F7 !important;                    /* light grey */
+        background: #F5F6F7 !important;   /* light grey */
         border: 2px solid {DIVIDER_COLOR} !important;
         border-radius: 10px !important;
         padding: 10px 12px !important;
         margin-bottom: 8px !important;
         list-style: none !important;
       }}
-      /* Chosen/dragging/ghost states -> turn green */
+      /* Active drag states -> green so users see the interaction */
       li.sortable-chosen,
       li.sortable-ghost,
       li.sortable-drag {{
-        background: #E8F6DC !important;                   /* light green fill */
-        border-color: {BRAND_PRIMARY} !important;         /* green border */
+        background: #E8F6DC !important;
+        border-color: {BRAND_PRIMARY} !important;
       }}
 
-      /* Progress bar brand (solid) */
-      .stProgress > div > div > div {{
-          background: {BRAND_PRIMARY} !important;
+      /* Persistent 'touched' indicator chips below the list */
+      .chips {{ display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }}
+      .chip {{
+        padding: 6px 10px;
+        border-radius: 999px;
+        border: 2px solid {DIVIDER_COLOR};
+        background: #F5F6F7;
+        font-size: 0.95rem;
       }}
+      .chip.touched {{
+        border-color: {BRAND_PRIMARY};
+        background: #E8F6DC;
+      }}
+
+      /* Progress bar (solid) */
+      .stProgress > div > div > div {{ background: {BRAND_PRIMARY} !important; }}
     </style>
     """,
     unsafe_allow_html=True,
@@ -192,14 +203,22 @@ def get_query_param(name: str, default: str = "") -> str:
 
 
 def init_state():
-    defaults = {"page": 0, "answers": {}, "submitted": False, "error_msg": ""}
+    defaults = {
+        "page": 0,
+        "answers": {},
+        "submitted": False,
+        "error_msg": "",
+        # Brand ranking states
+        "brand_attrs_order": None,
+        "brand_attrs_prev": None,
+        "brand_attrs_touched": set(),
+    }
     for k, v in defaults.items():
         if k not in st.session_state:
             st.session_state[k] = v
 
 
 def navigate(delta: int):
-    """Robust navigation that avoids 'double click' by forcing a fresh rerun."""
     st.session_state.page = max(0, st.session_state.page + delta)
     st.session_state["_nav_event_at"] = datetime.utcnow().isoformat()
     st.rerun()
@@ -214,7 +233,7 @@ def big_header():
                 st.image(LOGO_PATH, width=64)
         with col_title:
             st.markdown(
-                '<p class="brand-title">IBA RadioPharma Solutions Quick Brand Perception survey</p>',
+                "<h1>IBA RadioPharma Solutions Quick Brand Perception survey</h1>",
                 unsafe_allow_html=True,
             )
         st.markdown("</div>", unsafe_allow_html=True)
@@ -249,7 +268,7 @@ st.progress(min(st.session_state.page / 6.0, 1.0))
 # Page 0
 if st.session_state.page == 0:
     with st.form("form_page_0", clear_on_submit=False):
-        st.markdown('<div class="title">Tell us about you</div>', unsafe_allow_html=True)
+        st.markdown('<h2 class="section-title">Tell us about you</h2>', unsafe_allow_html=True)
         role = st.selectbox(
             "Role",
             ["", "Physician", "Medical Physicist", "Researcher", "Industry", "Radiopharmacist", "Other"],
@@ -279,7 +298,7 @@ if st.session_state.page == 0:
 # Page 1
 elif st.session_state.page == 1:
     with st.form("form_page_1", clear_on_submit=False):
-        st.markdown('<div class="title">How familiar are you with the IBA brand?</div>', unsafe_allow_html=True)
+        st.markdown('<h2 class="section-title">How familiar are you with the IBA brand?</h2>', unsafe_allow_html=True)
         fam = st.selectbox(
             "Select one",
             [
@@ -309,7 +328,7 @@ elif st.session_state.page == 2:
 
     if not is_first_time:
         with st.form("form_page_2_known", clear_on_submit=False):
-            st.markdown('<div class="title">Where did you first hear about us?</div>', unsafe_allow_html=True)
+            st.markdown('<h2 class="section-title">Where did you first hear about us?</h2>', unsafe_allow_html=True)
             first_touch = st.selectbox(
                 "Choose one",
                 [
@@ -328,7 +347,7 @@ elif st.session_state.page == 2:
             )
             st.markdown('<hr class="divider" />', unsafe_allow_html=True)
 
-            st.markdown('<div class="title">Have you purchased any of the following solutions?</div>', unsafe_allow_html=True)
+            st.markdown('<h2 class="section-title">Have you purchased any of the following solutions?</h2>', unsafe_allow_html=True)
             solutions = st.multiselect(
                 "Select all that apply",
                 [
@@ -337,16 +356,16 @@ elif st.session_state.page == 2:
                     "Cyclone® IKON",
                     "Cyclone® 30XP",
                     "Cyclone® 70",
+                    "Cyclone® 18/9",
                     "Synthera®",
                     "Cassy®",
                     "Integralab®",
-                    "Cylcone® 18/9",
                 ],
                 key="solutions",
             )
             st.markdown('<hr class="divider" />', unsafe_allow_html=True)
 
-            st.markdown('<div class="title">How would you describe the IBA brand?</div>', unsafe_allow_html=True)
+            st.markdown('<h2 class="section-title">How would you describe the IBA brand?</h2>', unsafe_allow_html=True)
             st.caption("Drag and drop to rank from 1 (most representative) to 7 (least).")
             default_attrs = [
                 "Reliable",
@@ -357,20 +376,29 @@ elif st.session_state.page == 2:
                 "Flexible",
                 "Expert-Led",
             ]
-            if "brand_attrs_order" not in st.session_state:
+            if st.session_state.brand_attrs_order is None:
                 st.session_state.brand_attrs_order = default_attrs
+                st.session_state.brand_attrs_prev = default_attrs.copy()
+                st.session_state.brand_attrs_touched = set()
 
             ranked = None
             try:
-                from streamlit_sortables import sort_items  # pip install streamlit-sortables
+                from streamlit_sortables import sort_items  # requires streamlit-sortables
                 ranked = sort_items(
                     st.session_state.brand_attrs_order,
                     direction="vertical",
                     key="brand_sort",
                 )
-                if ranked and ranked != st.session_state.brand_attrs_order:
+                # Track 'touched' items persistently: any item whose index differs from previous render
+                if ranked:
+                    prev = st.session_state.brand_attrs_prev or []
+                    moved = {item for item in ranked if prev and ranked.index(item) != prev.index(item)}
+                    if moved:
+                        st.session_state.brand_attrs_touched |= moved
+                    st.session_state.brand_attrs_prev = ranked.copy()
                     st.session_state.brand_attrs_order = ranked
             except Exception:
+                # Fallback: selection order via multiselect
                 ranked = st.multiselect(
                     "If drag-and-drop is unavailable, tap attributes in order (top = most representative)",
                     default_attrs,
@@ -379,6 +407,17 @@ elif st.session_state.page == 2:
                     help="Your selection order will be recorded as the ranking.",
                 )
                 st.session_state.brand_attrs_order = ranked
+                # When using fallback, mark all tapped as touched
+                st.session_state.brand_attrs_touched = set(ranked)
+
+            # Persistent visual indicator chips (light grey → green once touched)
+            if st.session_state.brand_attrs_order:
+                chips_html = ['<div class="chips">']
+                for name in st.session_state.brand_attrs_order:
+                    cls = "chip touched" if name in st.session_state.brand_attrs_touched else "chip"
+                    chips_html.append(f'<div class="{cls}">{name}</div>')
+                chips_html.append("</div>")
+                st.markdown("".join(chips_html), unsafe_allow_html=True)
 
             st.markdown('<hr class="divider" />', unsafe_allow_html=True)
             cols = st.columns(2)
@@ -402,7 +441,7 @@ elif st.session_state.page == 2:
 
     else:
         with st.form("form_page_2_first", clear_on_submit=False):
-            st.markdown('<div class="title">What problem are you trying to solve right now?</div>', unsafe_allow_html=True)
+            st.markdown('<h2 class="section-title">What problem are you trying to solve right now?</h2>', unsafe_allow_html=True)
             problem = st.text_input("Briefly describe (optional)", key="current_problem")
             st.markdown('<hr class="divider" />', unsafe_allow_html=True)
             cols = st.columns(2)
@@ -417,7 +456,7 @@ elif st.session_state.page == 2:
 # Page 3
 elif st.session_state.page == 3:
     with st.form("form_page_3", clear_on_submit=False):
-        st.markdown('<div class="title">Through which channels do you consume professional content?</div>', unsafe_allow_html=True)
+        st.markdown('<h2 class="section-title">Through which channels do you consume professional content?</h2>', unsafe_allow_html=True)
         channels = st.multiselect(
             "Select all that apply",
             [
@@ -437,7 +476,7 @@ elif st.session_state.page == 3:
         )
         st.markdown('<hr class="divider" />', unsafe_allow_html=True)
 
-        st.markdown('<div class="title">Preferred content formats</div>', unsafe_allow_html=True)
+        st.markdown('<h2 class="section-title">Preferred content formats</h2>', unsafe_allow_html=True)
         formats = st.multiselect(
             "Select all that apply",
             [
@@ -454,7 +493,7 @@ elif st.session_state.page == 3:
         )
         st.markdown('<hr class="divider" />', unsafe_allow_html=True)
 
-        st.markdown('<div class="title">Preferred video length</div>', unsafe_allow_html=True)
+        st.markdown('<h2 class="section-title">Preferred video length</h2>', unsafe_allow_html=True)
         video_len = st.radio("", ["<60s", "1–3 min", "3–6 min", "6–12 min"], index=1, horizontal=True, key="video_length")
         st.markdown('<hr class="divider" />', unsafe_allow_html=True)
 
@@ -480,7 +519,7 @@ elif st.session_state.page == 3:
 # Page 4
 elif st.session_state.page == 4:
     with st.form("form_page_4", clear_on_submit=False):
-        st.markdown('<div class="title">Which message resonates most?</div>', unsafe_allow_html=True)
+        st.markdown('<h2 class="section-title">Which message resonates most?</h2>', unsafe_allow_html=True)
         message = st.selectbox(
             "Pick one",
             [
@@ -494,11 +533,11 @@ elif st.session_state.page == 4:
         )
         st.markdown('<hr class="divider" />', unsafe_allow_html=True)
 
-        st.markdown('<div class="title">How likely are you to recommend our content/products to a colleague?</div>', unsafe_allow_html=True)
+        st.markdown('<h2 class="section-title">How likely are you to recommend our content/products to a colleague?</h2>', unsafe_allow_html=True)
         nps = st.slider("", 0, 10, 8, key="likelihood_recommend")
         st.markdown('<hr class="divider" />', unsafe_allow_html=True)
 
-        st.markdown('<div class="title">One thing we could do to be more valuable to you (optional)</div>', unsafe_allow_html=True)
+        st.markdown('<h2 class="section-title">One thing we could do to be more valuable to you (optional)</h2>', unsafe_allow_html=True)
         one_thing = st.text_area("", height=80, key="improve_one_thing")
         st.markdown('<hr class="divider" />', unsafe_allow_html=True)
 
@@ -523,7 +562,7 @@ elif st.session_state.page == 4:
 # Page 5
 elif st.session_state.page == 5:
     with st.form("form_page_5", clear_on_submit=False):
-        st.markdown('<div class="title">Stay in touch</div>', unsafe_allow_html=True)
+        st.markdown('<h2 class="section-title">Stay in touch</h2>', unsafe_allow_html=True)
         st.write("By submitting this form you consent to the processing of your responses for research and personalization purposes.")
         email = st.text_input("Work email (optional)", key="email")
         do_not_contact = st.checkbox("I don't want to receive relevant content updates in the future", value=False, key="do_not_contact")
