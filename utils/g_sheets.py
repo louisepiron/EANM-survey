@@ -10,7 +10,7 @@ SCOPE = [
     "https://www.googleapis.com/auth/drive",
 ]
 
-# Fixed schema to avoid header churn and accelerate writes
+# Fixed schema for faster appends and stable columns
 HEADERS: List[str] = [
     "timestamp_utc",
     "role",
@@ -28,6 +28,7 @@ HEADERS: List[str] = [
     "improve_one_thing",
     "consent",
     "email",
+    "do_not_contact",
     "staff_initials",
 ]
 
