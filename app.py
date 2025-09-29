@@ -37,6 +37,9 @@ st.markdown(
       }}
 
       /* Hide Streamlit default chrome for kiosk-like experience */
+      [data-testid="stToolbar"] {{ display: none !important; }}
+      [data-testid="stDecoration"] {{ display: none !important; }}
+      [data-testid="viewerBadge"] {{ display: none !important; }}
       header {{ visibility: hidden; }}
       #MainMenu {{ visibility: hidden; }}
       footer {{ visibility: hidden; }}
@@ -56,15 +59,15 @@ st.markdown(
       }}
       .brand-title {{
         font-weight: 850;
-        font-size: 2.2rem; /* bigger title to visually match a ~64px logo */
+        font-size: 2.8rem; /* bigger title to visually match a ~64px logo */
         margin: 0;
-        line-height: 1.1;
+        line-height: 1.05;
       }}
 
       /* Remove card boxes; use clean layout with light dividers */
       .title {{
           font-weight: 750;
-          font-size: 1.15rem;
+          font-size: 1.35rem; /* increased form section title size */
           margin: 0 0 0.5rem 0;
           color: #1c1c1c;
       }}
@@ -77,7 +80,7 @@ st.markdown(
         margin: 10px 0 14px 0;
       }}
 
-      /* Buttons (solid primary) */
+      /* Buttons (solid primary, stay green) */
       .stButton > button {{
           height: 56px;
           font-size: 1.05rem;
@@ -90,7 +93,32 @@ st.markdown(
           filter: brightness(0.98);
       }}
 
-      /* Inputs and touch targets */
+      /* Make the "answer zones" visible at all times with green borders */
+      /* Selectbox and Multiselect (BaseWeb Select) */
+      div[data-baseweb="select"] > div {{
+        border: 2px solid {BRAND_PRIMARY} !important;
+        border-radius: 10px !important;
+      }}
+      /* Text input */
+      .stTextInput > div > div {{
+        border: 2px solid {BRAND_PRIMARY} !important;
+        border-radius: 10px !important;
+        padding: 2px 8px !important;
+      }}
+      /* Text area */
+      .stTextArea > div > div {{
+        border: 2px solid {BRAND_PRIMARY} !important;
+        border-radius: 10px !important;
+        padding: 2px 8px !important;
+      }}
+      /* Radio group container */
+      .stRadio > div {{
+        border: 2px solid {BRAND_PRIMARY} !important;
+        border-radius: 10px !important;
+        padding: 6px 10px !important;
+      }}
+
+      /* Inputs and touch targets (text sizes) */
       .stTextInput input, .stSelectbox, .stMultiSelect, .stTextArea textarea {{
           font-size: 1.05rem !important;
       }}
@@ -129,12 +157,12 @@ def init_state():
             st.session_state[k] = v
 
 
-def go_next():
-    st.session_state.page += 1
-
-
-def go_back():
-    st.session_state.page = max(0, st.session_state.page - 1)
+def navigate(delta: int):
+    """Robust navigation that avoids 'double click' by forcing a fresh rerun."""
+    st.session_state.page = max(0, st.session_state.page + delta)
+    # mark a nav event to fully reset any lingering submit states
+    st.session_state["_nav_event_at"] = datetime.utcnow().isoformat()
+    st.rerun()
 
 
 def big_header():
@@ -179,7 +207,7 @@ if staff_initials:
 # Simple progress indicator
 st.progress(min(st.session_state.page / 6.0, 1.0))
 
-# Page 0 — Segmenting (use forms to avoid double-click and accidental submits)
+# Page 0 — Segmenting (use forms to avoid accidental reruns)
 if st.session_state.page == 0:
     with st.form("form_page_0", clear_on_submit=False):
         st.markdown('<div class="title">Tell us about you</div>', unsafe_allow_html=True)
@@ -196,16 +224,20 @@ if st.session_state.page == 0:
             key="region",
         )
         st.markdown('<hr class="divider" />', unsafe_allow_html=True)
-        next_btn = st.form_submit_button("Next ➜")
+        cols = st.columns(2)
+        back_btn = cols[0].form_submit_button("⬅ Back")
+        next_btn = cols[1].form_submit_button("Next ➜")
+        if back_btn:
+            navigate(-1)
         if next_btn:
             missing = validate_required({"Role": role, "Region": region})
             if missing:
                 st.toast("Please select your Role and Region.", icon="⚠️")
             else:
                 st.session_state.answers.update({"role": role, "region": region})
-                go_next()
+                navigate(+1)
 
-# Page 1 — Familiarity (updated wording and picklist)
+# Page 1 — Familiarity
 elif st.session_state.page == 1:
     with st.form("form_page_1", clear_on_submit=False):
         st.markdown('<div class="title">How familiar are you with the IBA brand?</div>', unsafe_allow_html=True)
@@ -226,10 +258,10 @@ elif st.session_state.page == 1:
         back_btn = cols[0].form_submit_button("⬅ Back")
         next_btn = cols[1].form_submit_button("Next ➜")
         if back_btn:
-            go_back()
-        elif next_btn:
+            navigate(-1)
+        if next_btn:
             st.session_state.answers["familiarity"] = fam
-            go_next()
+            navigate(+1)
 
 # Page 2 — Known vs first-time branching
 elif st.session_state.page == 2:
@@ -275,7 +307,6 @@ elif st.session_state.page == 2:
 
             st.markdown('<div class="title">How would you describe the IBA brand?</div>', unsafe_allow_html=True)
             st.caption("Drag and drop to rank from 1 (most representative) to 7 (least).")
-            # Drag-and-drop ranking with fallback
             default_attrs = [
                 "Reliable",
                 "Innovative",
@@ -285,7 +316,6 @@ elif st.session_state.page == 2:
                 "Flexible",
                 "Expert-Led",
             ]
-            # Keep an order in session to preserve user rearrangement across reruns
             if "brand_attrs_order" not in st.session_state:
                 st.session_state.brand_attrs_order = default_attrs
 
@@ -297,11 +327,9 @@ elif st.session_state.page == 2:
                     direction="vertical",
                     key="brand_sort",
                 )
-                # Update session with new order
                 if ranked and ranked != st.session_state.brand_attrs_order:
                     st.session_state.brand_attrs_order = ranked
             except Exception:
-                # Fallback: simple multiselect capturing tap order
                 ranked = st.multiselect(
                     "If drag-and-drop is unavailable, tap attributes in order (top = most representative)",
                     default_attrs,
@@ -316,8 +344,8 @@ elif st.session_state.page == 2:
             back_btn = cols[0].form_submit_button("⬅ Back")
             next_btn = cols[1].form_submit_button("Next ➜")
             if back_btn:
-                go_back()
-            elif next_btn:
+                navigate(-1)
+            if next_btn:
                 missing = validate_required({"First touchpoint": first_touch})
                 if missing:
                     st.toast("Please complete the required fields.", icon="⚠️")
@@ -329,7 +357,7 @@ elif st.session_state.page == 2:
                             "brand_attributes_ranked": st.session_state.brand_attrs_order,
                         }
                     )
-                    go_next()
+                    navigate(+1)
 
     else:
         with st.form("form_page_2_first", clear_on_submit=False):
@@ -340,10 +368,10 @@ elif st.session_state.page == 2:
             back_btn = cols[0].form_submit_button("⬅ Back")
             next_btn = cols[1].form_submit_button("Next ➜")
             if back_btn:
-                go_back()
-            elif next_btn:
+                navigate(-1)
+            if next_btn:
                 st.session_state.answers.update({"current_problem": problem})
-                go_next()
+                navigate(+1)
 
 # Page 3 — Content consumption and formats
 elif st.session_state.page == 3:
@@ -393,8 +421,8 @@ elif st.session_state.page == 3:
         back_btn = cols[0].form_submit_button("⬅ Back")
         next_btn = cols[1].form_submit_button("Next ➜")
         if back_btn:
-            go_back()
-        elif next_btn:
+            navigate(-1)
+        if next_btn:
             missing = validate_required({"Channels": channels, "Formats": formats, "Video length": video_len})
             if missing:
                 st.toast("Please select at least one channel and format.", icon="⚠️")
@@ -406,13 +434,12 @@ elif st.session_state.page == 3:
                         "video_length": video_len,
                     }
                 )
-                go_next()
+                navigate(+1)
 
 # Page 4 — Message test + likelihood + feedback
 elif st.session_state.page == 4:
     with st.form("form_page_4", clear_on_submit=False):
         st.markdown('<div class="title">Which message resonates most?</div>', unsafe_allow_html=True)
-        # Use selectbox with an empty first option to avoid preselect and prevent accidental auto-advance
         message = st.selectbox(
             "Pick one",
             [
@@ -426,12 +453,10 @@ elif st.session_state.page == 4:
         )
         st.markdown('<hr class="divider" />', unsafe_allow_html=True)
 
-        # Promote the likelihood sentence as a main title-level element
         st.markdown('<div class="title">How likely are you to recommend our content/products to a colleague?</div>', unsafe_allow_html=True)
         nps = st.slider("", 0, 10, 8, key="likelihood_recommend")
         st.markdown('<hr class="divider" />', unsafe_allow_html=True)
 
-        # Promote the “One thing” sentence visually at same level
         st.markdown('<div class="title">One thing we could do to be more valuable to you (optional)</div>', unsafe_allow_html=True)
         one_thing = st.text_area("", height=80, key="improve_one_thing")
         st.markdown('<hr class="divider" />', unsafe_allow_html=True)
@@ -440,8 +465,8 @@ elif st.session_state.page == 4:
         back_btn = cols[0].form_submit_button("⬅ Back")
         next_btn = cols[1].form_submit_button("Next ➜")
         if back_btn:
-            go_back()
-        elif next_btn:
+            navigate(-1)
+        if next_btn:
             if message.strip() == "":
                 st.toast("Please choose a message.", icon="⚠️")
             else:
@@ -452,15 +477,13 @@ elif st.session_state.page == 4:
                         "improve_one_thing": one_thing,
                     }
                 )
-                go_next()
+                navigate(+1)
 
 # Page 5 — Submit (consent statement + opt-out)
 elif st.session_state.page == 5:
     with st.form("form_page_5", clear_on_submit=False):
         st.markdown('<div class="title">Stay in touch</div>', unsafe_allow_html=True)
-        st.write(
-            "By submitting this form you consent to the processing of your responses for research and personalization purposes."
-        )
+        st.write("By submitting this form you consent to the processing of your responses for research and personalization purposes.")
         email = st.text_input("Work email (optional)", key="email")
         do_not_contact = st.checkbox("I don't want to receive relevant content updates in the future", value=False, key="do_not_contact")
         st.markdown('<hr class="divider" />', unsafe_allow_html=True)
@@ -476,13 +499,12 @@ elif st.session_state.page == 5:
         back_btn = cols[0].form_submit_button("⬅ Back")
         submit_btn = cols[1].form_submit_button("Submit ✅")
         if back_btn:
-            go_back()
-        elif submit_btn:
+            navigate(-1)
+        if submit_btn:
             answers = st.session_state.answers.copy()
             answers.update(
                 {
-                    # Consent is implicit by submission per your request
-                    "consent": True,
+                    "consent": True,  # submission implies consent per your request
                     "email": email.strip(),
                     "do_not_contact": do_not_contact,
                     "staff_initials": staff.strip(),
@@ -497,7 +519,7 @@ elif st.session_state.page == 5:
             try:
                 append_to_google_sheet(answers)
                 st.session_state.submitted = True
-                go_next()
+                navigate(+1)
             except Exception as e:
                 st.error(f"Submission failed: {e}")
                 st.info("Please check your internet connection and try again.")
@@ -508,6 +530,7 @@ else:
     st.button(
         "Start another response ↺",
         on_click=lambda: [
-            st.session_state.update({"page": 0, "answers": {}, "submitted": False, "error_msg": ""})
+            st.session_state.update({"page": 0, "answers": {}, "submitted": False, "error_msg": ""}),
+            st.rerun(),
         ],
     )
