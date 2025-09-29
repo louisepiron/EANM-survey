@@ -36,7 +36,7 @@ st.markdown(
         color: #1c1c1c;
       }}
 
-      /* Hide Streamlit default chrome for kiosk-like experience */
+      /* Hide Streamlit chrome and badges */
       [data-testid="stToolbar"] {{ display: none !important; }}
       [data-testid="stDecoration"] {{ display: none !important; }}
       [data-testid="viewerBadge"] {{ display: none !important; }}
@@ -59,15 +59,15 @@ st.markdown(
       }}
       .brand-title {{
         font-weight: 850;
-        font-size: 2.8rem; /* bigger title to visually match a ~64px logo */
+        font-size: 2.8rem; /* large title to match ~64px logo height */
         margin: 0;
         line-height: 1.05;
       }}
 
-      /* Remove card boxes; use clean layout with light dividers */
+      /* Section titles and subtle text */
       .title {{
           font-weight: 750;
-          font-size: 1.35rem; /* increased form section title size */
+          font-size: 1.35rem;
           margin: 0 0 0.5rem 0;
           color: #1c1c1c;
       }}
@@ -80,45 +80,76 @@ st.markdown(
         margin: 10px 0 14px 0;
       }}
 
-      /* Buttons (solid primary, stay green) */
-      .stButton > button {{
+      /* Buttons (force solid green everywhere, including form submit buttons) */
+      .stButton > button,
+      .stForm .stButton > button,
+      button[kind="primary"],
+      [data-testid="baseButton-primary"] {{
           height: 56px;
           font-size: 1.05rem;
           border-radius: 10px;
-          border: 1px solid rgba(0,0,0,0.04);
-          background: {BRAND_PRIMARY} !important;
-          color: white !important;
+          background-color: {BRAND_PRIMARY} !important;
+          color: #ffffff !important;
+          border: 1px solid {BRAND_PRIMARY} !important;
       }}
-      .stButton > button:hover {{
+      .stButton > button:hover,
+      .stForm .stButton > button:hover,
+      button[kind="primary"]:hover,
+      [data-testid="baseButton-primary"]:hover {{
           filter: brightness(0.98);
       }}
-
-      /* Make the "answer zones" visible at all times with green borders */
-      /* Selectbox and Multiselect (BaseWeb Select) */
-      div[data-baseweb="select"] > div {{
-        border: 2px solid {BRAND_PRIMARY} !important;
-        border-radius: 10px !important;
+      .stButton > button:disabled,
+      .stForm .stButton > button:disabled {{
+          opacity: 0.6 !important;
       }}
+
+      /* Answer zones: light gray by default, green on focus/active */
+
+      /* Select and Multiselect (BaseWeb Select) */
+      div[data-baseweb="select"] > div {{
+        border: 2px solid {DIVIDER_COLOR} !important;     /* default light gray */
+        border-radius: 10px !important;
+        transition: border-color 120ms ease-in-out;
+      }}
+      div[data-baseweb="select"]:focus-within > div,
+      div[data-baseweb="select"][aria-expanded="true"] > div {{
+        border-color: {BRAND_PRIMARY} !important;          /* green when focused/open */
+      }}
+
       /* Text input */
       .stTextInput > div > div {{
-        border: 2px solid {BRAND_PRIMARY} !important;
+        border: 2px solid {DIVIDER_COLOR} !important;
         border-radius: 10px !important;
         padding: 2px 8px !important;
+        transition: border-color 120ms ease-in-out;
       }}
-      /* Text area */
-      .stTextArea > div > div {{
-        border: 2px solid {BRAND_PRIMARY} !important;
-        border-radius: 10px !important;
-        padding: 2px 8px !important;
-      }}
-      /* Radio group container */
-      .stRadio > div {{
-        border: 2px solid {BRAND_PRIMARY} !important;
-        border-radius: 10px !important;
-        padding: 6px 10px !important;
+      .stTextInput > div > div:focus-within {{
+        border-color: {BRAND_PRIMARY} !important;
       }}
 
-      /* Inputs and touch targets (text sizes) */
+      /* Text area */
+      .stTextArea > div > div {{
+        border: 2px solid {DIVIDER_COLOR} !important;
+        border-radius: 10px !important;
+        padding: 2px 8px !important;
+        transition: border-color 120ms ease-in-out;
+      }}
+      .stTextArea > div > div:focus-within {{
+        border-color: {BRAND_PRIMARY} !important;
+      }}
+
+      /* Radio group container */
+      .stRadio > div {{
+        border: 2px solid {DIVIDER_COLOR} !important;
+        border-radius: 10px !important;
+        padding: 6px 10px !important;
+        transition: border-color 120ms ease-in-out;
+      }}
+      .stRadio > div:focus-within {{
+        border-color: {BRAND_PRIMARY} !important;
+      }}
+
+      /* Inputs and touch targets (text sizes + accents) */
       .stTextInput input, .stSelectbox, .stMultiSelect, .stTextArea textarea {{
           font-size: 1.05rem !important;
       }}
@@ -160,7 +191,6 @@ def init_state():
 def navigate(delta: int):
     """Robust navigation that avoids 'double click' by forcing a fresh rerun."""
     st.session_state.page = max(0, st.session_state.page + delta)
-    # mark a nav event to fully reset any lingering submit states
     st.session_state["_nav_event_at"] = datetime.utcnow().isoformat()
     st.rerun()
 
@@ -170,7 +200,6 @@ def big_header():
         st.markdown('<div class="brand-header">', unsafe_allow_html=True)
         col_logo, col_title = st.columns([1, 8], vertical_alignment="center")
         with col_logo:
-            # Show logo if present; no placeholder if missing (prevents empty white box)
             if os.path.exists(LOGO_PATH):
                 st.image(LOGO_PATH, width=64)
         with col_title:
@@ -199,15 +228,15 @@ def validate_required(fields: Dict[str, Any]) -> List[str]:
 init_state()
 big_header()
 
-# Optional staff initials via URL, no UI box if provided
+# Optional staff initials via URL
 staff_initials = get_query_param("staff", "")
 if staff_initials:
     st.session_state.answers["staff_initials"] = staff_initials
 
-# Simple progress indicator
+# Progress
 st.progress(min(st.session_state.page / 6.0, 1.0))
 
-# Page 0 — Segmenting (use forms to avoid accidental reruns)
+# Page 0
 if st.session_state.page == 0:
     with st.form("form_page_0", clear_on_submit=False):
         st.markdown('<div class="title">Tell us about you</div>', unsafe_allow_html=True)
@@ -237,7 +266,7 @@ if st.session_state.page == 0:
                 st.session_state.answers.update({"role": role, "region": region})
                 navigate(+1)
 
-# Page 1 — Familiarity
+# Page 1
 elif st.session_state.page == 1:
     with st.form("form_page_1", clear_on_submit=False):
         st.markdown('<div class="title">How familiar are you with the IBA brand?</div>', unsafe_allow_html=True)
@@ -263,7 +292,7 @@ elif st.session_state.page == 1:
             st.session_state.answers["familiarity"] = fam
             navigate(+1)
 
-# Page 2 — Known vs first-time branching
+# Page 2
 elif st.session_state.page == 2:
     fam = st.session_state.answers.get("familiarity", "")
     is_first_time = fam == "It's the first time I hear about IBA"
@@ -373,7 +402,7 @@ elif st.session_state.page == 2:
                 st.session_state.answers.update({"current_problem": problem})
                 navigate(+1)
 
-# Page 3 — Content consumption and formats
+# Page 3
 elif st.session_state.page == 3:
     with st.form("form_page_3", clear_on_submit=False):
         st.markdown('<div class="title">Where do you consume professional content?</div>', unsafe_allow_html=True)
@@ -436,7 +465,7 @@ elif st.session_state.page == 3:
                 )
                 navigate(+1)
 
-# Page 4 — Message test + likelihood + feedback
+# Page 4
 elif st.session_state.page == 4:
     with st.form("form_page_4", clear_on_submit=False):
         st.markdown('<div class="title">Which message resonates most?</div>', unsafe_allow_html=True)
@@ -479,7 +508,7 @@ elif st.session_state.page == 4:
                 )
                 navigate(+1)
 
-# Page 5 — Submit (consent statement + opt-out)
+# Page 5
 elif st.session_state.page == 5:
     with st.form("form_page_5", clear_on_submit=False):
         st.markdown('<div class="title">Stay in touch</div>', unsafe_allow_html=True)
@@ -488,7 +517,6 @@ elif st.session_state.page == 5:
         do_not_contact = st.checkbox("I don't want to receive relevant content updates in the future", value=False, key="do_not_contact")
         st.markdown('<hr class="divider" />', unsafe_allow_html=True)
 
-        # Staff initials field only if not provided via URL
         staff = st.text_input(
             "Staff initials (optional)",
             value=st.session_state.answers.get("staff_initials", ""),
@@ -504,14 +532,13 @@ elif st.session_state.page == 5:
             answers = st.session_state.answers.copy()
             answers.update(
                 {
-                    "consent": True,  # submission implies consent per your request
+                    "consent": True,
                     "email": email.strip(),
                     "do_not_contact": do_not_contact,
                     "staff_initials": staff.strip(),
                     "timestamp_utc": datetime.utcnow().isoformat(),
                 }
             )
-            # Flatten lists
             for k in ["channels", "formats", "solutions", "brand_attributes_ranked"]:
                 if k in answers and isinstance(answers[k], list):
                     answers[k] = ", ".join(answers[k])
@@ -524,7 +551,7 @@ elif st.session_state.page == 5:
                 st.error(f"Submission failed: {e}")
                 st.info("Please check your internet connection and try again.")
 
-# Thank you page
+# Thank you
 else:
     st.success("Thank you! Your responses have been recorded.")
     st.button(
