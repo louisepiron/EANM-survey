@@ -49,7 +49,7 @@ st.markdown(
         padding-bottom: 1rem;
       }}
 
-      /* H1 form title bar (solid green), H1 text inside */
+      /* H1 form title bar (solid green), H1 text inside (slightly smaller) */
       .brand-header {{
         background: {BRAND_PRIMARY};
         border-radius: 12px;
@@ -59,7 +59,7 @@ st.markdown(
       }}
       .brand-header h1 {{
         font-weight: 850;
-        font-size: 2.2rem;     /* H1 a bit smaller per request */
+        font-size: 2.0rem;     /* H1 slightly smaller */
         margin: 0;
         line-height: 1.1;
       }}
@@ -151,48 +151,50 @@ st.markdown(
         border-color: {BRAND_PRIMARY} !important;
       }}
 
-      /* Drag-and-drop list items: light grey by default */
+      /* SortableJS containers (Pool + Boxes 1..5) */
+      /* Make containers (the drop zones) white with light grey border */
+      ul.sortable, .sortable, .sortable-container {{
+        background: #FFFFFF !important;
+        border: 2px dashed {DIVIDER_COLOR} !important;
+        border-radius: 10px !important;
+        min-height: 52px; /* so empty boxes are clearly visible */
+        padding: 8px !important;
+        margin-bottom: 10px !important;
+        list-style: none !important;
+      }}
+
+      /* Sortable items (attributes) with green styling */
       ul.sortable li,
       .sortable li,
       li.sortable-item {{
-        background: #F5F6F7 !important;   /* light grey */
-        border: 2px solid {DIVIDER_COLOR} !important;
+        background: #E8F6DC !important;                 /* green-tinted */
+        border: 2px solid {BRAND_PRIMARY} !important;   /* green border */
         border-radius: 10px !important;
         padding: 10px 12px !important;
         margin-bottom: 8px !important;
         list-style: none !important;
       }}
-      /* Active drag states -> green so users see interaction */
+      /* During active drag */
       li.sortable-chosen,
       li.sortable-ghost,
       li.sortable-drag {{
-        background: #E8F6DC !important;
+        background: #D9F0C2 !important;
         border-color: {BRAND_PRIMARY} !important;
+        opacity: 0.95;
       }}
 
-      /* Pool (attributes to drag) — display as green chips above the DnD lists */
-      .pool-chips {{ display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0; }}
-      .pool-chips .chip {{
-        padding: 6px 10px;
-        border-radius: 999px;
-        background: #E8F6DC;                /* green-tinted background */
-        border: 2px solid {BRAND_PRIMARY};  /* green border */
-        font-size: 0.95rem;
+      /* Labels row under the Pool to indicate boxes 1..5 */
+      .rank-labels {{
+        display: grid;
+        grid-template-columns: 1fr;
+        row-gap: 10px;
+        margin: 6px 0 8px 0;
       }}
-
-      /* Rank slots visual wrappers (white with light grey border) */
-      .rank-slot {{
-        background: #FFFFFF;
-        border: 2px dashed {DIVIDER_COLOR};
-        border-radius: 10px;
-        padding: 8px;
-        margin-bottom: 10px;
-      }}
-      .rank-slot h3 {{
-        margin: 0 0 6px 0;
-        font-size: 1rem;
+      .rank-label {{
         font-weight: 700;
+        font-size: 0.95rem;
         color: #4a4a4a;
+        margin: 0 0 4px 0;
       }}
 
       /* Progress bar (solid) */
@@ -221,12 +223,11 @@ def init_state():
         "error_msg": "",
         # Brand ranking state
         "brand_pool": None,            # list[str]
-        "brand_rank_1": [],            # each slot is a list to support DnD API (we enforce 1 item)
+        "brand_rank_1": [],
         "brand_rank_2": [],
         "brand_rank_3": [],
         "brand_rank_4": [],
         "brand_rank_5": [],
-        "brand_prev_lists": None,      # track to detect changes
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -380,9 +381,9 @@ elif st.session_state.page == 2:
             )
             st.markdown('<hr class="divider" />', unsafe_allow_html=True)
 
-            # Brand ranking with 5 empty slots (1..5). Drag attributes from pool to slots.
+            # Brand ranking with Pool + 5 true connected drop-boxes (1..5)
             st.markdown('<h2 class="section-title">How would you describe the IBA brand?</h2>', unsafe_allow_html=True)
-            st.caption("Drag attributes into the boxes from 1 (most representative) to 5 (least).")
+            st.caption("Drag attributes from the Pool into the boxes 1 (most representative) to 5 (least).")
 
             default_attrs = [
                 "Reliable",
@@ -393,7 +394,8 @@ elif st.session_state.page == 2:
                 "Flexible",
                 "Expert-Led",
             ]
-            # Initialize pool/slots
+
+            # Initialize lists
             if st.session_state.brand_pool is None:
                 st.session_state.brand_pool = default_attrs.copy()
                 st.session_state.brand_rank_1 = []
@@ -401,21 +403,14 @@ elif st.session_state.page == 2:
                 st.session_state.brand_rank_3 = []
                 st.session_state.brand_rank_4 = []
                 st.session_state.brand_rank_5 = []
-                st.session_state.brand_prev_lists = None
 
-            # Show pool as green chips (visual cue for what to drag)
-            if st.session_state.brand_pool:
-                chips_html = ['<div class="pool-chips">'] + [
-                    f'<div class="chip">{name}</div>' for name in st.session_state.brand_pool
-                ] + ['</div>']
-                st.markdown("".join(chips_html), unsafe_allow_html=True)
-
-            # Drag-and-drop across 6 lists: pool + 5 rank slots
-            dnd_worked = False
+            # Render Pool label
+            st.markdown("Pool")
+            dnd_ok = False
             try:
                 from streamlit_sortables import sort_items  # pip install streamlit-sortables
 
-                # Items structure: list of lists (pool first, then ranks)
+                # Items structure: [Pool, 1, 2, 3, 4, 5]
                 items = [
                     st.session_state.brand_pool,
                     st.session_state.brand_rank_1,
@@ -425,33 +420,40 @@ elif st.session_state.page == 2:
                     st.session_state.brand_rank_5,
                 ]
 
-                # Labels for display (we'll render our own slot labels around it)
-                st.markdown('<div class="rank-slot"><h3>1</h3></div>', unsafe_allow_html=True)
-                st.markdown('<div class="rank-slot"><h3>2</h3></div>', unsafe_allow_html=True)
-                st.markdown('<div class="rank-slot"><h3>3</h3></div>', unsafe_allow_html=True)
-                st.markdown('<div class="rank-slot"><h3>4</h3></div>', unsafe_allow_html=True)
-                st.markdown('<div class="rank-slot"><h3>5</h3></div>', unsafe_allow_html=True)
-
-                # Invoke multi-container sort (SortableJS connected lists)
-                results = sort_items(
+                # Render the connected lists (vertical stack)
+                new_lists = sort_items(
                     items,
-                    multi_containers=True,   # supports multiple connected lists
+                    multi_containers=True,
                     direction="vertical",
                     key="brand_sort_multi",
                 )
-                if isinstance(results, list) and len(results) == 6:
-                    st.session_state.brand_pool = results[0]
-                    st.session_state.brand_rank_1 = results[1]
-                    st.session_state.brand_rank_2 = results[2]
-                    st.session_state.brand_rank_3 = results[3]
-                    st.session_state.brand_rank_4 = results[4]
-                    st.session_state.brand_rank_5 = results[5]
-                    dnd_worked = True
-            except Exception:
-                dnd_worked = False
 
-            if not dnd_worked:
-                # Fallback to 5 pickers ensuring uniqueness
+                if isinstance(new_lists, list) and len(new_lists) == 6:
+                    st.session_state.brand_pool = new_lists[0]
+                    st.session_state.brand_rank_1 = new_lists[1]
+                    st.session_state.brand_rank_2 = new_lists[2]
+                    st.session_state.brand_rank_3 = new_lists[3]
+                    st.session_state.brand_rank_4 = new_lists[4]
+                    st.session_state.brand_rank_5 = new_lists[5]
+                    dnd_ok = True
+
+                # Show numeric labels under Pool to make it obvious these are the target boxes
+                st.markdown(
+                    '<div class="rank-labels">'
+                    '<div class="rank-label">1</div>'
+                    '<div class="rank-label">2</div>'
+                    '<div class="rank-label">3</div>'
+                    '<div class="rank-label">4</div>'
+                    '<div class="rank-label">5</div>'
+                    "</div>",
+                    unsafe_allow_html=True,
+                )
+
+            except Exception:
+                dnd_ok = False
+
+            if not dnd_ok:
+                # Fallback: 5 pickers ensuring uniqueness
                 st.info("Drag-and-drop unavailable. Please pick your top 5 attributes in order.")
                 remaining = default_attrs.copy()
                 r1 = st.selectbox("Rank 1 (most representative)", remaining, index=0, key="rank_sel_1")
@@ -469,7 +471,6 @@ elif st.session_state.page == 2:
                 st.session_state.brand_rank_3 = [r3]
                 st.session_state.brand_rank_4 = [r4]
                 st.session_state.brand_rank_5 = [r5]
-                # pool becomes the unused attributes
                 st.session_state.brand_pool = remaining
 
             st.markdown('<hr class="divider" />', unsafe_allow_html=True)
@@ -483,7 +484,6 @@ elif st.session_state.page == 2:
                 if missing:
                     st.toast("Please complete the required fields.", icon="⚠️")
                 else:
-                    # Validate exactly one item in each rank 1..5
                     ranks = [
                         st.session_state.brand_rank_1,
                         st.session_state.brand_rank_2,
