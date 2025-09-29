@@ -4,13 +4,13 @@ from typing import List, Dict, Any
 
 import streamlit as st
 
-from utils.g_sheets import append_to_google_sheet, healthcheck_google_sheet
+from utils.g_sheets import append_to_google_sheet
 
 # ----------------------------
 # Basic configuration
 # ----------------------------
 st.set_page_config(
-    page_title="Quick Booth Survey",
+    page_title="IBA RadioPharma Solutions Quick Brand Perception survey",
     page_icon="✅",
     layout="centered",
     initial_sidebar_state="collapsed",
@@ -20,14 +20,13 @@ st.set_page_config(
 # Brand configuration
 # ----------------------------
 BRAND_PRIMARY = "#69BE28"   # Green
-BRAND_SECONDARY = "#B8D587" # Light green
+BRAND_SECONDARY = "#B8D587" # Light green (used sparingly as neutral accent)
 BRAND_NEUTRAL = "#808691"   # Neutral gray
-BRAND_GRADIENT = f"linear-gradient(135deg, {BRAND_PRIMARY} 0%, {BRAND_SECONDARY} 100%)"
 FONT_STACK = "'Simplon Norm', Arial, sans-serif"
 LOGO_PATH = "assets/logo.png"  # Place your logo file here (PNG)
 
 # ----------------------------
-# Global styles (branding)
+# Global styles (branding) - solid colors only
 # ----------------------------
 st.markdown(
     f"""
@@ -37,16 +36,6 @@ st.markdown(
         --brand-secondary: {BRAND_SECONDARY};
         --brand-neutral: {BRAND_NEUTRAL};
       }}
-
-      /* Optional: Load Simplon Norm if you add a webfont file (see README)
-      @font-face {{
-        font-family: 'Simplon Norm';
-        src: url('assets/SimplonNorm.woff2') format('woff2');
-        font-weight: 400;
-        font-style: normal;
-        font-display: swap;
-      }}
-      */
 
       html, body, [class*="css"] {{
         font-family: {FONT_STACK} !important;
@@ -63,38 +52,33 @@ st.markdown(
         padding-bottom: 1rem;
       }}
 
-      /* Branded header bar */
+      /* Branded header bar (solid color, no gradient) */
       .brand-header {{
-        background: {BRAND_GRADIENT};
-        border-radius: 14px;
-        padding: 10px 14px;
-        margin-bottom: 14px;
+        background: {BRAND_PRIMARY};
+        border-radius: 12px;
+        padding: 12px 16px;
+        margin-bottom: 16px;
         color: white;
       }}
       .brand-title {{
-        font-weight: 700;
-        font-size: 1.25rem;
-        margin: 0 0 4px 0;
-        line-height: 1.2;
-      }}
-      .brand-caption {{
-        font-size: 0.95rem;
-        opacity: 0.95;
+        font-weight: 800;
+        font-size: 1.6rem; /* bigger title per request */
         margin: 0;
+        line-height: 1.25;
       }}
 
       /* Cards for questions */
       .question-card {{
           background: #FFFFFF;
           border: 1px solid rgba(128,134,145,0.20);
-          border-radius: 14px;
-          padding: 20px 16px;
+          border-radius: 12px;
+          padding: 18px 16px;
           margin-bottom: 12px;
           box-shadow: 0 1px 2px rgba(0,0,0,0.04);
       }}
       .title {{
           font-weight: 700;
-          font-size: 1.15rem;
+          font-size: 1.1rem;
           margin-bottom: 0.25rem;
           color: #1c1c1c;
       }}
@@ -104,13 +88,13 @@ st.markdown(
           margin-bottom: 0.75rem;
       }}
 
-      /* Buttons */
+      /* Buttons (solid primary) */
       .stButton > button {{
           height: 56px;
           font-size: 1.05rem;
-          border-radius: 12px;
+          border-radius: 10px;
           border: 1px solid rgba(0,0,0,0.04);
-          background: {BRAND_GRADIENT} !important;
+          background: {BRAND_PRIMARY} !important;
           color: white !important;
       }}
       .stButton > button:hover {{
@@ -129,29 +113,9 @@ st.markdown(
           accent-color: {BRAND_PRIMARY};
       }}
 
-      /* Slider + progress accent */
-      .stSlider [role="slider"] {{
-          border-color: {BRAND_PRIMARY} !important;
-      }}
-      .stSlider [data-baseweb="slider"] > div > div {{
-          background: rgba(105,190,40,0.25) !important;
-      }}
-      .stSlider [data-baseweb="slider"] .css-14xtw13 {{
-          background: {BRAND_PRIMARY} !important;
-      }}
-
-      /* Progress bar brand */
+      /* Progress bar brand (solid) */
       .stProgress > div > div > div {{
-          background: {BRAND_GRADIENT} !important;
-      }}
-
-      /* Links (e.g., privacy policy) */
-      a {{
-        color: {BRAND_PRIMARY};
-        text-decoration: none;
-      }}
-      a:hover {{
-        text-decoration: underline;
+          background: {BRAND_PRIMARY} !important;
       }}
     </style>
     """,
@@ -190,23 +154,15 @@ def big_header():
         st.markdown('<div class="brand-header">', unsafe_allow_html=True)
         col_logo, col_title = st.columns([1, 8])
         with col_logo:
-            try:
+            # Show logo if present; no placeholder if missing (prevents empty white box)
+            if os.path.exists(LOGO_PATH):
                 st.image(LOGO_PATH, width=64)
-            except Exception:
-                st.write(" ")
         with col_title:
-            st.markdown('<p class="brand-title">Quick Booth Survey</p>', unsafe_allow_html=True)
-            st.markdown('<p class="brand-caption">60–90 seconds; your input helps us improve our content and products.</p>', unsafe_allow_html=True)
+            st.markdown(
+                '<p class="brand-title">IBA RadioPharma Solutions Quick Brand Perception survey</p>',
+                unsafe_allow_html=True,
+            )
         st.markdown("</div>", unsafe_allow_html=True)
-
-
-def likert_row(title: str, key: str, min_val=1, max_val=5, help_txt: str = "") -> int:
-    with st.container():
-        st.markdown(f'<div class="title">{title}</div>', unsafe_allow_html=True)
-        if help_txt:
-            st.caption(help_txt)
-        val = st.slider("", min_value=min_val, max_value=max_val, value=int((min_val + max_val) / 2), key=key)
-    return val
 
 
 def validate_required(fields: Dict[str, Any]) -> List[str]:
@@ -227,28 +183,27 @@ def validate_required(fields: Dict[str, Any]) -> List[str]:
 init_state()
 big_header()
 
+# Optional staff initials via URL, no UI box if provided
 staff_initials = get_query_param("staff", "")
 if staff_initials:
     st.session_state.answers["staff_initials"] = staff_initials
 
-with st.expander("Connection status", expanded=False):
-    ok, msg = healthcheck_google_sheet()
-    st.write("Sheets:", "✅ Connected" if ok else f"⚠️ {msg}")
-
+# Simple progress indicator
 st.progress(min(st.session_state.page / 6.0, 1.0))
 
+# Page 0 — Segmenting
 if st.session_state.page == 0:
     with st.container():
         st.markdown('<div class="question-card">', unsafe_allow_html=True)
         st.markdown('<div class="title">Tell us about you</div>', unsafe_allow_html=True)
         role = st.selectbox(
             "Role",
-            ["", "Physician", "Technologist", "Physicist", "Researcher", "Industry", "Other"],
+            ["", "Physician", "Medical Physicist", "Researcher", "Industry", "Radiopharmacist", "Other"],
             index=0,
         )
         region = st.selectbox(
             "Region",
-            ["", "EU", "UK", "North America", "LATAM", "APAC", "Other"],
+            ["", "EU", "North America", "LATAM", "APAC", "Middle East", "Africa"],
             index=0,
         )
         st.markdown("</div>", unsafe_allow_html=True)
@@ -261,18 +216,20 @@ if st.session_state.page == 0:
             st.session_state.answers.update({"role": role, "region": region})
             next_page()
 
+# Page 1 — Familiarity (updated wording and picklist)
 elif st.session_state.page == 1:
     st.markdown('<div class="question-card">', unsafe_allow_html=True)
-    st.markdown('<div class="title">How familiar are you with our brand?</div>', unsafe_allow_html=True)
-    fam = st.radio(
+    st.markdown('<div class="title">How familiar are you with the IBA brand?</div>', unsafe_allow_html=True)
+    fam = st.selectbox(
         "Select one",
         [
             "I'm a current customer",
-            "I've used or evaluated",
-            "I'm familiar with the brand",
-            "First time hearing about you",
+            "I've been a customer",
+            "I'm not a customer but I'm considering purchasing a product",
+            "I'm familiar with IBA but don't have / plan to buy a product",
+            "It's the first time I hear about IBA",
         ],
-        index=1,
+        index=2,
     )
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -283,27 +240,26 @@ elif st.session_state.page == 1:
         st.session_state.answers["familiarity"] = fam
         next_page()
 
+# Page 2 — Known vs first-time branching
 elif st.session_state.page == 2:
     fam = st.session_state.answers.get("familiarity", "")
-    is_known = fam in [
-        "I'm a current customer",
-        "I've used or evaluated",
-        "I'm familiar with the brand",
-    ]
+    is_first_time = fam == "It's the first time I hear about IBA"
 
-    if is_known:
+    if not is_first_time:
+        # Known branch
         st.markdown('<div class="question-card">', unsafe_allow_html=True)
         st.markdown('<div class="title">Where did you first hear about us?</div>', unsafe_allow_html=True)
         first_touch = st.selectbox(
             "Choose one",
             [
                 "",
-                "LinkedIn",
-                "Conference",
-                "Colleague recommendation",
-                "Society website",
+                "Colleague / Friend",
+                "Congress",
+                "IBA website",
                 "Search (Google)",
                 "Email newsletter",
+                "LinkedIn",
+                "Instagram",
                 "Other",
             ],
             index=0,
@@ -312,23 +268,45 @@ elif st.session_state.page == 2:
 
         st.markdown('<div class="question-card">', unsafe_allow_html=True)
         st.markdown('<div class="title">Which of our solutions have you used or know best?</div>', unsafe_allow_html=True)
-        solutions = st.text_input("List product(s) or feature(s)")
+        solutions = st.multiselect(
+            "Select all that apply",
+            [
+                "Cyclone® Key",
+                "Cyclone® Kiube",
+                "Cyclone® IKON",
+                "Cyclone® 30XP",
+                "Cyclone® 70",
+                "Synthera®",
+                "Cassy®",
+            ],
+        )
         st.markdown("</div>", unsafe_allow_html=True)
 
         st.markdown('<div class="question-card">', unsafe_allow_html=True)
-        st.markdown('<div class="title">How do you rate us on the following?</div>', unsafe_allow_html=True)
-        innov = likert_row("Innovation", "likert_innov")
-        clin = likert_row("Clinical impact", "likert_clin")
-        ease = likert_row("Ease of use", "likert_ease")
-        support = likert_row("Customer support", "likert_support")
-        value = likert_row("Value for money", "likert_value")
+        st.markdown('<div class="title">How would you describe the IBA brand? (rank by tapping in order)</div>', unsafe_allow_html=True)
+        st.caption("Select attributes in order from most to least representative.")
+        brand_attrs = st.multiselect(
+            "Select in order (top = most representative)",
+            [
+                "Innovative",
+                "Trustworthy",
+                "Clinically impactful",
+                "Reliable",
+                "Easy to work with",
+                "Evidence-based",
+                "Premium quality",
+                "Good value for money",
+            ],
+            help="Your selection order will be recorded as the ranking.",
+        )
         st.markdown("</div>", unsafe_allow_html=True)
 
         cols = st.columns([1, 1])
         if cols[0].button("⬅ Back"):
             prev_page()
         if cols[1].button("Next ➜"):
-            missing = validate_required({"First touchpoint": first_touch, "Solutions": solutions})
+            missing = validate_required({"First touchpoint": first_touch})
+            # 'solutions' and 'brand_attrs' can be optional; make them required if you prefer:
             if missing:
                 st.toast("Please complete the required fields.", icon="⚠️")
             else:
@@ -336,46 +314,36 @@ elif st.session_state.page == 2:
                     {
                         "first_touch": first_touch,
                         "solutions": solutions,
-                        "attr_innovation": innov,
-                        "attr_clinical": clin,
-                        "attr_ease": ease,
-                        "attr_support": support,
-                        "attr_value": value,
+                        "brand_attributes_ranked": brand_attrs,
                     }
                 )
                 next_page()
-    else:
-        st.markdown('<div class="question-card">', unsafe_allow_html=True)
-        st.markdown('<div class="title">Before today, had you heard of us?</div>', unsafe_allow_html=True)
-        heard = st.radio("", ["Yes", "No", "Not sure"], index=2)
-        st.markdown("</div>", unsafe_allow_html=True)
 
+    else:
+        # First-time branch
         st.markdown('<div class="question-card">', unsafe_allow_html=True)
         st.markdown('<div class="title">What problem are you trying to solve right now?</div>', unsafe_allow_html=True)
-        problem = st.text_input("Briefly describe")
+        problem = st.text_input("Briefly describe (optional)")
         st.markdown("</div>", unsafe_allow_html=True)
 
         cols = st.columns([1, 1])
         if cols[0].button("⬅ Back"):
             prev_page()
         if cols[1].button("Next ➜"):
-            st.session_state.answers.update(
-                {
-                    "heard_before": heard,
-                    "current_problem": problem,
-                }
-            )
+            st.session_state.answers.update({"current_problem": problem})
             next_page()
 
+# Page 3 — Content consumption and formats
 elif st.session_state.page == 3:
     st.markdown('<div class="question-card">', unsafe_allow_html=True)
-    st.markdown('<div class="title">Where do you discover professional content?</div>', unsafe_allow_html=True)
+    st.markdown('<div class="title">Where do you consume professional content?</div>', unsafe_allow_html=True)
     channels = st.multiselect(
         "Select all that apply",
         [
             "LinkedIn",
+            "Instagram",
             "YouTube",
-            "Society websites",
+            "Industry association websites",
             "Email newsletters",
             "Webinars",
             "Podcasts",
@@ -392,13 +360,14 @@ elif st.session_state.page == 3:
     formats = st.multiselect(
         "Select all that apply",
         [
-            "<2-min quick tips",
-            "3–6 min demos",
+            "Short video (<2 min) quick tips",
+            "Video demos (3–6 min)",
             "Case studies",
-            "Protocols / how-tos",
-            "Webinars",
-            "White papers",
-            "Email digest",
+            "Protocols / how-tos (step-by-step guides)",
+            "Webinars (live or on-demand)",
+            "White papers / technical briefs",
+            "Email digest / newsletter",
+            "Podcasts",
         ],
     )
     st.markdown("</div>", unsafe_allow_html=True)
@@ -425,15 +394,16 @@ elif st.session_state.page == 3:
             )
             next_page()
 
+# Page 4 — Message test + outcome
 elif st.session_state.page == 4:
     st.markdown('<div class="question-card">', unsafe_allow_html=True)
     st.markdown('<div class="title">Which message resonates most?</div>', unsafe_allow_html=True)
     message = st.radio(
         "Pick one",
         [
-            "Delivering evidence-based nuclear medicine workflows, simplified.",
-            "From protocol to report: faster, consistent results you can trust.",
-            "Clinical impact first: tools that help you treat with confidence.",
+            "Empowering precision in nuclear medicine workflows—simplified, standardized, and scalable.",
+            "From radiopharmaceutical preparation to clinical reporting—accelerated, reliable outcomes you can trust.",
+            "Driving clinical impact through trusted radiopharma solutions—confidence at every step.",
         ],
         index=1,
     )
@@ -458,19 +428,22 @@ elif st.session_state.page == 4:
         )
         next_page()
 
+# Page 5 — Stay in touch (merged consent + contact)
 elif st.session_state.page == 5:
     st.markdown('<div class="question-card">', unsafe_allow_html=True)
-    st.markdown('<div class="title">Stay in touch (optional)</div>', unsafe_allow_html=True)
-    opt_in = st.radio("May we contact you with relevant content?", ["No", "Yes"], index=0, horizontal=True)
-    email = ""
-    if opt_in == "Yes":
-        email = st.text_input("Work email")
+    st.markdown('<div class="title">Stay in touch</div>', unsafe_allow_html=True)
+
     consent = st.checkbox(
-        "I consent to the processing of my responses for research and personalization. See our Privacy Policy.",
+        "I consent to the processing of my responses for research and personalization and agree to be contacted with relevant content.",
         value=False,
     )
-    staff = st.text_input("Staff initials (optional)", value=st.session_state.answers.get("staff_initials", ""))
+    email = st.text_input("Work email (optional)")
 
+    # Staff initials field only if not provided via URL
+    staff = st.text_input(
+        "Staff initials (optional)",
+        value=st.session_state.answers.get("staff_initials", ""),
+    )
     st.markdown("</div>", unsafe_allow_html=True)
 
     cols = st.columns([1, 1])
@@ -479,23 +452,20 @@ elif st.session_state.page == 5:
 
     if cols[1].button("Submit ✅"):
         if not consent:
-            st.toast("Consent is required to submit.", icon="⚠️")
-        elif opt_in == "Yes" and (email.strip() == "" or "@" not in email):
-            st.toast("Please enter a valid email or choose No.", icon="⚠️")
+            st.toast("Please check the consent box to submit.", icon="⚠️")
         else:
             answers = st.session_state.answers.copy()
             answers.update(
                 {
-                    "opt_in": opt_in,
-                    "email": email.strip(),
                     "consent": consent,
+                    "email": email.strip(),
                     "staff_initials": staff.strip(),
                     "timestamp_utc": datetime.utcnow().isoformat(),
                 }
             )
 
             # Flatten lists
-            for k in ["channels", "formats"]:
+            for k in ["channels", "formats", "solutions", "brand_attributes_ranked"]:
                 if k in answers and isinstance(answers[k], list):
                     answers[k] = ", ".join(answers[k])
 
@@ -508,9 +478,9 @@ elif st.session_state.page == 5:
                 st.error(st.session_state.error_msg)
                 st.info("Please check your internet connection and try again.")
 
+# Thank you page
 else:
     st.success("Thank you! Your responses have been recorded.")
-    st.caption("Enjoy EANM. You can close this page or hand the iPad back to staff.")
     st.button(
         "Start another response ↺",
         on_click=lambda: [
