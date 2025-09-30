@@ -36,13 +36,21 @@ st.markdown(
         color: #1c1c1c;
       }}
 
-      /* Hide Streamlit chrome and badges */
+      /* Hide Streamlit/GitHub chrome and badges */
       [data-testid="stToolbar"] {{ display: none !important; }}
       [data-testid="stDecoration"] {{ display: none !important; }}
       [data-testid="viewerBadge"] {{ display: none !important; }}
       header {{ visibility: hidden; }}
       #MainMenu {{ visibility: hidden; }}
       footer {{ visibility: hidden; }}
+
+      /* Extra mobile hardening: hide any GitHub/branding links or images on small screens */
+      @media (max-width: 768px) {{
+        a[href*="github.com"] {{ display: none !important; }}
+        a[href*="github.com"] img {{ display: none !important; }}
+        a[aria-label*="GitHub"] {{ display: none !important; }}
+        img[alt*="GitHub"] {{ display: none !important; }}
+      }}
 
       .block-container {{
         padding-top: 0.5rem;
@@ -57,17 +65,35 @@ st.markdown(
         margin-bottom: 10px;
         color: white;
       }}
+      /* Neutralize any auto-injected H1 sizing on dynamic Streamlit classes */
+      .st-emotion-cache-10j6mrm h1 {{ 
+        font-size: inherit !important; 
+        line-height: inherit !important; 
+      }}
       .brand-header h1 {{
         font-weight: 850;
         font-size: 1.6rem;     /* H1 per request */
         margin: 0;
         line-height: 1.15;
       }}
+      /* Vertically center logo and H1 */
+      .brand-header [data-testid="column"] {{
+        display: flex;
+        align-items: center;
+      }}
+      .brand-header [data-testid="column"]:first-child img {{
+        display: block;
+        height: 64px;
+        width: auto;
+      }}
+      .brand-header [data-testid="column"]:nth-child(2) h1 {{
+        margin-left: 12px;
+      }}
 
       /* H2 section/question titles */
       h2.section-title {{
         font-weight: 750;
-        font-size: 1.45rem;    /* H2 */
+        font-size: 1.45rem;
         margin: 0 0 0.5rem 0;
         color: #1c1c1c;
       }}
@@ -80,7 +106,7 @@ st.markdown(
         margin: 10px 0 14px 0;
       }}
 
-      /* Buttons — force solid green */
+      /* Buttons — force solid green (covers primary/secondary/base buttons & form submit buttons) */
       .stButton > button,
       .stForm .stButton > button,
       button,
@@ -106,7 +132,6 @@ st.markdown(
       }}
 
       /* Answer zones: light gray by default; green on focus/active */
-
       /* Select/Multiselect (BaseWeb Select) */
       div[data-baseweb="select"] > div {{
         border: 2px solid {DIVIDER_COLOR} !important;
@@ -149,6 +174,12 @@ st.markdown(
       }}
       .stRadio > div:focus-within {{
         border-color: {BRAND_PRIMARY} !important;
+      }}
+      /* Ensure long radio labels wrap (for long message sentences) */
+      .stRadio label {{
+        white-space: normal !important;
+        overflow-wrap: anywhere !important;
+        line-height: 1.3 !important;
       }}
 
       /* Sortable single list (ranking all attributes) */
@@ -285,8 +316,8 @@ if st.session_state.page == 0:
         )
         st.markdown('<hr class="divider" />', unsafe_allow_html=True)
         cols = st.columns(2)
-        back_btn = cols[0].form_submit_button("⬅ Back")
-        next_btn = cols[1].form_submit_button("Next ➜")
+        back_btn = cols[0].form_submit_button("Back")
+        next_btn = cols[1].form_submit_button("Next")
         if back_btn:
             navigate(-1)
         if next_btn:
@@ -315,8 +346,8 @@ elif st.session_state.page == 1:
         )
         st.markdown('<hr class="divider" />', unsafe_allow_html=True)
         cols = st.columns(2)
-        back_btn = cols[0].form_submit_button("⬅ Back")
-        next_btn = cols[1].form_submit_button("Next ➜")
+        back_btn = cols[0].form_submit_button("Back")
+        next_btn = cols[1].form_submit_button("Next")
         if back_btn:
             navigate(-1)
         if next_btn:
@@ -410,8 +441,8 @@ elif st.session_state.page == 2:
 
             st.markdown('<hr class="divider" />', unsafe_allow_html=True)
             cols = st.columns(2)
-            back_btn = cols[0].form_submit_button("⬅ Back")
-            next_btn = cols[1].form_submit_button("Next ➜")
+            back_btn = cols[0].form_submit_button("Back")
+            next_btn = cols[1].form_submit_button("Next")
             if back_btn:
                 navigate(-1)
             if next_btn:
@@ -434,8 +465,8 @@ elif st.session_state.page == 2:
             problem = st.text_input("Briefly describe (optional)", key="current_problem")
             st.markdown('<hr class="divider" />', unsafe_allow_html=True)
             cols = st.columns(2)
-            back_btn = cols[0].form_submit_button("⬅ Back")
-            next_btn = cols[1].form_submit_button("Next ➜")
+            back_btn = cols[0].form_submit_button("Back")
+            next_btn = cols[1].form_submit_button("Next")
             if back_btn:
                 navigate(-1)
             if next_btn:
@@ -487,8 +518,8 @@ elif st.session_state.page == 3:
         st.markdown('<hr class="divider" />', unsafe_allow_html=True)
 
         cols = st.columns(2)
-        back_btn = cols[0].form_submit_button("⬅ Back")
-        next_btn = cols[1].form_submit_button("Next ➜")
+        back_btn = cols[0].form_submit_button("Back")
+        next_btn = cols[1].form_submit_button("Next")
         if back_btn:
             navigate(-1)
         if next_btn:
@@ -509,17 +540,15 @@ elif st.session_state.page == 3:
 elif st.session_state.page == 4:
     with st.form("form_page_4", clear_on_submit=False):
         st.markdown('<h2 class="section-title">Which message resonates most?</h2>', unsafe_allow_html=True)
-        message = st.selectbox(
-            "Pick one",
-            [
-                "",
-                "Empowering precision in nuclear medicine workflows—simplified, standardized, and scalable.",
-                "From radiopharmaceutical preparation to clinical reporting—accelerated, reliable outcomes you can trust.",
-                "Driving clinical impact through trusted radiopharma solutions—confidence at every step.",
-            ],
-            index=0,
-            key="message_choice",
-        )
+
+        # Use a radio with a neutral first option so the long sentences are fully visible and no pre-select occurs.
+        message_options = [
+            "Please choose one",
+            "Empowering precision in nuclear medicine workflows—simplified, standardized, and scalable.",
+            "From radiopharmaceutical preparation to clinical reporting—accelerated, reliable outcomes you can trust.",
+            "Driving clinical impact through trusted radiopharma solutions—confidence at every step.",
+        ]
+        message = st.radio("Pick one", message_options, index=0, key="message_choice")
         st.markdown('<hr class="divider" />', unsafe_allow_html=True)
 
         st.markdown('<h2 class="section-title">How likely are you to recommend our content/products to a colleague?</h2>', unsafe_allow_html=True)
@@ -531,12 +560,12 @@ elif st.session_state.page == 4:
         st.markdown('<hr class="divider" />', unsafe_allow_html=True)
 
         cols = st.columns(2)
-        back_btn = cols[0].form_submit_button("⬅ Back")
-        next_btn = cols[1].form_submit_button("Next ➜")
+        back_btn = cols[0].form_submit_button("Back")
+        next_btn = cols[1].form_submit_button("Next")
         if back_btn:
             navigate(-1)
         if next_btn:
-            if message.strip() == "":
+            if message.strip() == "" or message == "Please choose one":
                 st.toast("Please choose a message.", icon="⚠️")
             else:
                 st.session_state.answers.update(
@@ -564,8 +593,8 @@ elif st.session_state.page == 5:
         )
 
         cols = st.columns(2)
-        back_btn = cols[0].form_submit_button("⬅ Back")
-        submit_btn = cols[1].form_submit_button("Submit ✅")
+        back_btn = cols[0].form_submit_button("Back")
+        submit_btn = cols[1].form_submit_button("Submit")
         if back_btn:
             navigate(-1)
         if submit_btn:
