@@ -41,12 +41,8 @@ st.markdown(
       [data-testid="stDecoration"],
       [data-testid="viewerBadge"],
       [data-testid="stStatusWidget"],
-      [data-testid="stHeaderActionMenu"] {{
-        display: none !important;
-      }}
-      header {{ display: none !important; }}  /* collapse instead of just hide */
-      #MainMenu {{ display: none !important; }}
-      footer {{ display: none !important; }}
+      [data-testid="stHeaderActionMenu"] {{ display: none !important; }}
+      header, #MainMenu, footer {{ display: none !important; }}
 
       /* Extra mobile hardening: hide any GitHub/branding links or images on small screens */
       @media (max-width: 768px) {{
@@ -55,9 +51,9 @@ st.markdown(
         a[aria-label*="GitHub"],
         img[alt*="GitHub"],
         a[href*="streamlit.io"],
-        a[href*="streamlit.io"] img {{
-          display: none !important;
-        }}
+        a[href*="streamlit.io"] img,
+        svg[aria-label*="GitHub"],
+        [aria-label*="View source on GitHub"] {{ display: none !important; }}
       }}
 
       .block-container {{
@@ -80,7 +76,7 @@ st.markdown(
       }}
       .brand-header h1 {{
         font-weight: 850;
-        font-size: 1.6rem;     /* H1 per request */
+        font-size: 1.6rem;
         margin: 0;
         line-height: 1.15;
       }}
@@ -114,7 +110,7 @@ st.markdown(
         margin: 10px 0 14px 0;
       }}
 
-      /* Buttons — force solid green (covers primary/secondary/base buttons & form submit buttons) */
+      /* Buttons — force solid green (primary/secondary/base + form submit buttons) */
       .stButton > button,
       .stForm .stButton > button,
       button,
@@ -126,27 +122,33 @@ st.markdown(
           background-color: {BRAND_PRIMARY} !important;
           color: #ffffff !important;
           border: 1px solid {BRAND_PRIMARY} !important;
-
-          /* Make buttons fill their column to avoid overlap/centering issues */
-          width: 100% !important;
-          display: block !important;
-          margin: 0 !important;   /* ensure left-aligned within column */
+          /* Let buttons size to content so we can align them left/right */
+          width: auto !important;
       }}
       .stButton > button:hover,
       .stForm .stButton > button:hover,
       button:hover,
       [data-testid="baseButton-secondary"]:hover,
-      [data-testid="baseButton-primary"]:hover {{
-          filter: brightness(0.98);
-      }}
+      [data-testid="baseButton-primary"]:hover {{ filter: brightness(0.98); }}
       .stButton > button:disabled,
-      .stForm .stButton > button:disabled {{
-          opacity: 0.6 !important;
-      }}
+      .stForm .stButton > button:disabled {{ opacity: 0.6 !important; }}
 
-      /* Ensure the two buttons row has proper spacing on all screens */
-      [data-testid="stForm"] [data-testid="column"] .stButton {{
-        width: 100%;
+      /* Align Back (left) and Next/Submit (right) in the 2-column button row */
+      /* Right-align the last column's button on wide screens */
+      [data-testid="stForm"] > div [data-testid="column"]:nth-child(2) .stButton > button {{
+        margin-left: auto !important; /* push to the right */
+        display: block !important;
+      }}
+      /* Keep the first column's button left-aligned explicitly */
+      [data-testid="stForm"] > div [data-testid="column"]:first-child .stButton > button {{
+        margin-right: auto !important;
+        display: block !important;
+      }}
+      /* On mobile when columns stack, keep the right button aligned to the right edge */
+      @media (max-width: 768px) {{
+        [data-testid="stForm"] > div [data-testid="column"]:nth-child(2) .stButton > button {{
+          float: right !important;
+        }}
       }}
 
       /* Answer zones: light gray by default; green on focus/active */
@@ -157,9 +159,7 @@ st.markdown(
         transition: border-color 120ms ease-in-out;
       }}
       div[data-baseweb="select"]:focus-within > div,
-      div[data-baseweb="select"][aria-expanded="true"] > div {{
-        border-color: {BRAND_PRIMARY} !important;
-      }}
+      div[data-baseweb="select"][aria-expanded="true"] > div {{ border-color: {BRAND_PRIMARY} !important; }}
 
       /* Text input */
       .stTextInput > div > div {{
@@ -168,9 +168,7 @@ st.markdown(
         padding: 2px 8px !important;
         transition: border-color 120ms ease-in-out;
       }}
-      .stTextInput > div > div:focus-within {{
-        border-color: {BRAND_PRIMARY} !important;
-      }}
+      .stTextInput > div > div:focus-within {{ border-color: {BRAND_PRIMARY} !important; }}
 
       /* Text area */
       .stTextArea > div > div {{
@@ -179,9 +177,7 @@ st.markdown(
         padding: 2px 8px !important;
         transition: border-color 120ms ease-in-out;
       }}
-      .stTextArea > div > div:focus-within {{
-        border-color: {BRAND_PRIMARY} !important;
-      }}
+      .stTextArea > div > div:focus-within {{ border-color: {BRAND_PRIMARY} !important; }}
 
       /* Radio group container and labels (wrap long sentences fully) */
       .stRadio > div {{
@@ -190,9 +186,7 @@ st.markdown(
         padding: 6px 10px !important;
         transition: border-color 120ms ease-in-out;
       }}
-      .stRadio > div:focus-within {{
-        border-color: {BRAND_PRIMARY} !important;
-      }}
+      .stRadio > div:focus-within {{ border-color: {BRAND_PRIMARY} !important; }}
       .stRadio label {{
         white-space: normal !important;
         overflow-wrap: anywhere !important;
@@ -558,7 +552,6 @@ elif st.session_state.page == 4:
     with st.form("form_page_4", clear_on_submit=False):
         st.markdown('<h2 class="section-title">Which message resonates most?</h2>', unsafe_allow_html=True)
 
-        # Radio shows full sentences; no placeholder; first option selected by default
         message = st.radio(
             "Pick one",
             [
