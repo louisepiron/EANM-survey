@@ -44,16 +44,35 @@ st.markdown(
       [data-testid="stHeaderActionMenu"] {{ display: none !important; }}
       header, #MainMenu, footer {{ display: none !important; }}
 
+      /* Kill creator/viewer badges and any GitHub-branded fixed bits on all screens */
+      [data-testid="viewerBadge"],
+      [data-testid="stToolbar"],
+      [data-testid="stDecoration"],
+      [aria-label*="View source on GitHub"],
+      a[aria-label*="GitHub"],
+      a[href*="github.com"],
+      svg[aria-label*="GitHub"],
+      div[style*="position: fixed"]:has(a[href*="github.com"]),
+      div[style*="position: sticky"]:has(a[href*="github.com"]) {{
+        display: none !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+      }}
+
       /* Extra mobile hardening: hide any GitHub/branding links or images on small screens */
       @media (max-width: 768px) {{
         a[href*="github.com"],
         a[href*="github.com"] img,
         a[aria-label*="GitHub"],
         img[alt*="GitHub"],
+        svg[aria-label*="GitHub"],
+        [aria-label*="View source on GitHub"],
         a[href*="streamlit.io"],
         a[href*="streamlit.io"] img,
-        svg[aria-label*="GitHub"],
-        [aria-label*="View source on GitHub"] {{ display: none !important; }}
+        [data-testid*="Creator"],
+        [data-testid*="creator"],
+        [data-testid*="Badge"],
+        [data-testid*="badge"] {{ display: none !important; }}
       }}
 
       .block-container {{
@@ -122,8 +141,10 @@ st.markdown(
           background-color: {BRAND_PRIMARY} !important;
           color: #ffffff !important;
           border: 1px solid {BRAND_PRIMARY} !important;
-          /* Let buttons size to content so we can align them left/right */
           width: auto !important;
+          display: inline-flex !important;
+          align-items: center;
+          justify-content: center;
       }}
       .stButton > button:hover,
       .stForm .stButton > button:hover,
@@ -133,21 +154,49 @@ st.markdown(
       .stButton > button:disabled,
       .stForm .stButton > button:disabled {{ opacity: 0.6 !important; }}
 
-      /* Align Back (left) and Next/Submit (right) in the 2-column button row */
-      /* Right-align the last column's button on wide screens */
+      /* Default alignment rules (desktop) */
       [data-testid="stForm"] > div [data-testid="column"]:nth-child(2) .stButton > button {{
         margin-left: auto !important; /* push to the right */
-        display: block !important;
+        display: inline-flex !important;
       }}
-      /* Keep the first column's button left-aligned explicitly */
       [data-testid="stForm"] > div [data-testid="column"]:first-child .stButton > button {{
         margin-right: auto !important;
-        display: block !important;
+        display: inline-flex !important;
       }}
-      /* On mobile when columns stack, keep the right button aligned to the right edge */
+
+      /* Robust fix: treat the button row (the columns parent) as a 2-col grid so it NEVER stacks,
+         and align buttons to edges on all screen sizes */
+      [data-testid="stForm"] [data-testid="stHorizontalBlock"]:has(.stButton) {{
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        column-gap: 0.75rem !important;
+        align-items: end !important;
+        width: 100% !important;
+      }}
+      [data-testid="stForm"] [data-testid="stHorizontalBlock"]:has(.stButton) [data-testid="column"] {{
+        width: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }}
+      [data-testid="stForm"] [data-testid="stHorizontalBlock"]:has(.stButton) [data-testid="column"]:first-child .stButton {{
+        text-align: left !important;
+        width: 100% !important;
+      }}
+      [data-testid="stForm"] [data-testid="stHorizontalBlock"]:has(.stButton) [data-testid="column"]:last-child .stButton {{
+        text-align: right !important;
+        width: 100% !important;
+      }}
+      [data-testid="stForm"] [data-testid="stHorizontalBlock"]:has(.stButton) [data-testid="column"]:first-child .stButton > button {{
+        float: left !important;
+      }}
+      [data-testid="stForm"] [data-testid="stHorizontalBlock"]:has(.stButton) [data-testid="column"]:last-child .stButton > button {{
+        float: right !important;
+      }}
+
+      /* Ensure mobile keeps two-up (no stacking) */
       @media (max-width: 768px) {{
-        [data-testid="stForm"] > div [data-testid="column"]:nth-child(2) .stButton > button {{
-          float: right !important;
+        [data-testid="stForm"] [data-testid="stHorizontalBlock"]:has(.stButton) {{
+          grid-template-columns: 1fr 1fr !important;
         }}
       }}
 
