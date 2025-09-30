@@ -1,7 +1,6 @@
 import os
-import urllib.parse
 from datetime import datetime
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 
 import streamlit as st
 
@@ -226,18 +225,6 @@ st.markdown(
         opacity: 0.95;
       }}
 
-      /* QR card styling */
-      .qr-card {{
-        border: 1px solid {DIVIDER_COLOR};
-        border-radius: 10px;
-        padding: 10px;
-        background: #fff;
-      }}
-      .qr-card h3 {{
-        margin: 0 0 8px 0;
-        font-size: 1.05rem;
-      }}
-
       /* Progress bar (solid) */
       .stProgress > div > div > div {{ background: {BRAND_PRIMARY} !important; }}
     </style>
@@ -264,8 +251,6 @@ def init_state():
         "error_msg": "",
         # Brand ranking state (single list to rank all attributes)
         "brand_rank_order": None,  # list[str]
-        # Optional: cached public URL for QR
-        "_public_url": None,
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -305,27 +290,6 @@ def validate_required(fields: Dict[str, Any]) -> List[str]:
     return missing
 
 
-def get_public_survey_url() -> Optional[str]:
-    # Prefer secrets, then env var; cache in session to avoid repeated reads
-    if st.session_state.get("_public_url"):
-        return st.session_state["_public_url"]
-    url = None
-    try:
-        from streamlit import secrets
-        url = secrets.get("survey_public_url", None)
-    except Exception:
-        pass
-    if not url:
-        url = os.environ.get("SURVEY_PUBLIC_URL", None)
-    if url:
-        st.session_state["_public_url"] = url
-    return url
-
-
-def build_qr_url(target_url: str, size: int = 220) -> str:
-    return f"https://quickchart.io/qr?text={urllib.parse.quote_plus(target_url)}&margin=2&size={size}"
-
-
 # ----------------------------
 # App flow
 # ----------------------------
@@ -344,34 +308,18 @@ st.progress(min(st.session_state.page / 6.0, 1.0))
 if st.session_state.page == 0:
     with st.form("form_page_0", clear_on_submit=False):
         st.markdown('<h2 class="section-title">Tell us about you</h2>', unsafe_allow_html=True)
-
-        # Two-column layout: form on the left, QR on the right
-        col_form, col_qr = st.columns([2, 1])
-        with col_form:
-            role = st.selectbox(
-                "Role",
-                ["", "Physician", "Medical Physicist", "Researcher", "Industry", "Radiopharmacist", "Other"],
-                index=0,
-                key="role",
-            )
-            region = st.selectbox(
-                "Region",
-                ["", "EU", "North America", "LATAM", "APAC", "Middle East", "Africa"],
-                index=0,
-                key="region",
-            )
-
-        with col_qr:
-            public_url = get_public_survey_url()
-            st.markdown('<div class="qr-card">', unsafe_allow_html=True)
-            st.markdown("<h3>Prefer to fill in later?</h3>", unsafe_allow_html=True)
-            if public_url:
-                st.image(build_qr_url(public_url, size=220), caption="Scan to complete later", use_column_width=True)
-                st.code(public_url, language=None)
-            else:
-                st.caption("Add your public app URL to Streamlit secrets as survey_public_url (or env SURVEY_PUBLIC_URL) to show a QR code here.")
-            st.markdown("</div>", unsafe_allow_html=True)
-
+        role = st.selectbox(
+            "Role",
+            ["", "Physician", "Medical Physicist", "Researcher", "Industry", "Radiopharmacist", "Other"],
+            index=0,
+            key="role",
+        )
+        region = st.selectbox(
+            "Region",
+            ["", "EU", "North America", "LATAM", "APAC", "Middle East", "Africa"],
+            index=0,
+            key="region",
+        )
         st.markdown('<hr class="divider" />', unsafe_allow_html=True)
         cols = st.columns([1, 1], vertical_alignment="bottom")
         back_btn = cols[0].form_submit_button("Back")
