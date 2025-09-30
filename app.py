@@ -1,6 +1,7 @@
 import os
+import urllib.parse
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 import streamlit as st
 
@@ -66,9 +67,9 @@ st.markdown(
         color: white;
       }}
       /* Neutralize any auto-injected H1 sizing on dynamic Streamlit classes */
-      .st-emotion-cache-10j6mrm h1 {{ 
-        font-size: inherit !important; 
-        line-height: inherit !important; 
+      .st-emotion-cache-10j6mrm h1 {{
+        font-size: inherit !important;
+        line-height: inherit !important;
       }}
       .brand-header h1 {{
         font-weight: 850;
@@ -131,6 +132,13 @@ st.markdown(
           opacity: 0.6 !important;
       }}
 
+      /* Align Back/Next buttons to bottom-left and bottom-right within the button row */
+      /* Right-align the last column's button */
+      [data-testid="stForm"] [data-testid="column"]:nth-child(2) .stButton > button {{
+        display: block !important;
+        margin-left: auto !important;
+      }}
+
       /* Answer zones: light gray by default; green on focus/active */
       /* Select/Multiselect (BaseWeb Select) */
       div[data-baseweb="select"] > div {{
@@ -165,7 +173,7 @@ st.markdown(
         border-color: {BRAND_PRIMARY} !important;
       }}
 
-      /* Radio group container */
+      /* Radio group container and labels (wrap long sentences fully) */
       .stRadio > div {{
         border: 2px solid {DIVIDER_COLOR} !important;
         border-radius: 10px !important;
@@ -175,7 +183,6 @@ st.markdown(
       .stRadio > div:focus-within {{
         border-color: {BRAND_PRIMARY} !important;
       }}
-      /* Ensure long radio labels wrap (for long message sentences) */
       .stRadio label {{
         white-space: normal !important;
         overflow-wrap: anywhere !important;
@@ -219,6 +226,18 @@ st.markdown(
         opacity: 0.95;
       }}
 
+      /* QR card styling */
+      .qr-card {{
+        border: 1px solid {DIVIDER_COLOR};
+        border-radius: 10px;
+        padding: 10px;
+        background: #fff;
+      }}
+      .qr-card h3 {{
+        margin: 0 0 8px 0;
+        font-size: 1.05rem;
+      }}
+
       /* Progress bar (solid) */
       .stProgress > div > div > div {{ background: {BRAND_PRIMARY} !important; }}
     </style>
@@ -245,6 +264,8 @@ def init_state():
         "error_msg": "",
         # Brand ranking state (single list to rank all attributes)
         "brand_rank_order": None,  # list[str]
+        # Optional: cached public URL for QR
+        "_public_url": None,
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -284,6 +305,27 @@ def validate_required(fields: Dict[str, Any]) -> List[str]:
     return missing
 
 
+def get_public_survey_url() -> Optional[str]:
+    # Prefer secrets, then env var; cache in session to avoid repeated reads
+    if st.session_state.get("_public_url"):
+        return st.session_state["_public_url"]
+    url = None
+    try:
+        from streamlit import secrets
+        url = secrets.get("survey_public_url", None)
+    except Exception:
+        pass
+    if not url:
+        url = os.environ.get("SURVEY_PUBLIC_URL", None)
+    if url:
+        st.session_state["_public_url"] = url
+    return url
+
+
+def build_qr_url(target_url: str, size: int = 220) -> str:
+    return f"https://quickchart.io/qr?text={urllib.parse.quote_plus(target_url)}&margin=2&size={size}"
+
+
 # ----------------------------
 # App flow
 # ----------------------------
@@ -302,20 +344,36 @@ st.progress(min(st.session_state.page / 6.0, 1.0))
 if st.session_state.page == 0:
     with st.form("form_page_0", clear_on_submit=False):
         st.markdown('<h2 class="section-title">Tell us about you</h2>', unsafe_allow_html=True)
-        role = st.selectbox(
-            "Role",
-            ["", "Physician", "Medical Physicist", "Researcher", "Industry", "Radiopharmacist", "Other"],
-            index=0,
-            key="role",
-        )
-        region = st.selectbox(
-            "Region",
-            ["", "EU", "North America", "LATAM", "APAC", "Middle East", "Africa"],
-            index=0,
-            key="region",
-        )
+
+        # Two-column layout: form on the left, QR on the right
+        col_form, col_qr = st.columns([2, 1])
+        with col_form:
+            role = st.selectbox(
+                "Role",
+                ["", "Physician", "Medical Physicist", "Researcher", "Industry", "Radiopharmacist", "Other"],
+                index=0,
+                key="role",
+            )
+            region = st.selectbox(
+                "Region",
+                ["", "EU", "North America", "LATAM", "APAC", "Middle East", "Africa"],
+                index=0,
+                key="region",
+            )
+
+        with col_qr:
+            public_url = get_public_survey_url()
+            st.markdown('<div class="qr-card">', unsafe_allow_html=True)
+            st.markdown("<h3>Prefer to fill in later?</h3>", unsafe_allow_html=True)
+            if public_url:
+                st.image(build_qr_url(public_url, size=220), caption="Scan to complete later", use_column_width=True)
+                st.code(public_url, language=None)
+            else:
+                st.caption("Add your public app URL to Streamlit secrets as survey_public_url (or env SURVEY_PUBLIC_URL) to show a QR code here.")
+            st.markdown("</div>", unsafe_allow_html=True)
+
         st.markdown('<hr class="divider" />', unsafe_allow_html=True)
-        cols = st.columns(2)
+        cols = st.columns([1, 1], vertical_alignment="bottom")
         back_btn = cols[0].form_submit_button("Back")
         next_btn = cols[1].form_submit_button("Next")
         if back_btn:
@@ -345,7 +403,7 @@ elif st.session_state.page == 1:
             key="familiarity",
         )
         st.markdown('<hr class="divider" />', unsafe_allow_html=True)
-        cols = st.columns(2)
+        cols = st.columns([1, 1], vertical_alignment="bottom")
         back_btn = cols[0].form_submit_button("Back")
         next_btn = cols[1].form_submit_button("Next")
         if back_btn:
@@ -440,7 +498,7 @@ elif st.session_state.page == 2:
                 st.session_state.brand_rank_order = ranked
 
             st.markdown('<hr class="divider" />', unsafe_allow_html=True)
-            cols = st.columns(2)
+            cols = st.columns([1, 1], vertical_alignment="bottom")
             back_btn = cols[0].form_submit_button("Back")
             next_btn = cols[1].form_submit_button("Next")
             if back_btn:
@@ -464,7 +522,7 @@ elif st.session_state.page == 2:
             st.markdown('<h2 class="section-title">What problem are you trying to solve right now?</h2>', unsafe_allow_html=True)
             problem = st.text_input("Briefly describe (optional)", key="current_problem")
             st.markdown('<hr class="divider" />', unsafe_allow_html=True)
-            cols = st.columns(2)
+            cols = st.columns([1, 1], vertical_alignment="bottom")
             back_btn = cols[0].form_submit_button("Back")
             next_btn = cols[1].form_submit_button("Next")
             if back_btn:
@@ -517,7 +575,7 @@ elif st.session_state.page == 3:
         video_len = st.radio("", ["<60s", "1–3 min", "3–6 min", "6–12 min"], index=1, horizontal=True, key="video_length")
         st.markdown('<hr class="divider" />', unsafe_allow_html=True)
 
-        cols = st.columns(2)
+        cols = st.columns([1, 1], vertical_alignment="bottom")
         back_btn = cols[0].form_submit_button("Back")
         next_btn = cols[1].form_submit_button("Next")
         if back_btn:
@@ -541,14 +599,17 @@ elif st.session_state.page == 4:
     with st.form("form_page_4", clear_on_submit=False):
         st.markdown('<h2 class="section-title">Which message resonates most?</h2>', unsafe_allow_html=True)
 
-        # Use a radio with a neutral first option so the long sentences are fully visible and no pre-select occurs.
-        message_options = [
-            "Please choose one",
-            "Empowering precision in nuclear medicine workflows—simplified, standardized, and scalable.",
-            "From radiopharmaceutical preparation to clinical reporting—accelerated, reliable outcomes you can trust.",
-            "Driving clinical impact through trusted radiopharma solutions—confidence at every step.",
-        ]
-        message = st.radio("Pick one", message_options, index=0, key="message_choice")
+        # Radio shows full sentences; no placeholder; first option selected by default
+        message = st.radio(
+            "Pick one",
+            [
+                "Empowering precision in nuclear medicine workflows—simplified, standardized, and scalable.",
+                "From radiopharmaceutical preparation to clinical reporting—accelerated, reliable outcomes you can trust.",
+                "Driving clinical impact through trusted radiopharma solutions—confidence at every step.",
+            ],
+            index=0,
+            key="message_choice",
+        )
         st.markdown('<hr class="divider" />', unsafe_allow_html=True)
 
         st.markdown('<h2 class="section-title">How likely are you to recommend our content/products to a colleague?</h2>', unsafe_allow_html=True)
@@ -559,23 +620,20 @@ elif st.session_state.page == 4:
         one_thing = st.text_area("", height=80, key="improve_one_thing")
         st.markdown('<hr class="divider" />', unsafe_allow_html=True)
 
-        cols = st.columns(2)
+        cols = st.columns([1, 1], vertical_alignment="bottom")
         back_btn = cols[0].form_submit_button("Back")
         next_btn = cols[1].form_submit_button("Next")
         if back_btn:
             navigate(-1)
         if next_btn:
-            if message.strip() == "" or message == "Please choose one":
-                st.toast("Please choose a message.", icon="⚠️")
-            else:
-                st.session_state.answers.update(
-                    {
-                        "message_choice": message,
-                        "likelihood_recommend": nps,
-                        "improve_one_thing": one_thing,
-                    }
-                )
-                navigate(+1)
+            st.session_state.answers.update(
+                {
+                    "message_choice": message,
+                    "likelihood_recommend": nps,
+                    "improve_one_thing": one_thing,
+                }
+            )
+            navigate(+1)
 
 # Page 5
 elif st.session_state.page == 5:
@@ -592,7 +650,7 @@ elif st.session_state.page == 5:
             key="staff_initials_input",
         )
 
-        cols = st.columns(2)
+        cols = st.columns([1, 1], vertical_alignment="bottom")
         back_btn = cols[0].form_submit_button("Back")
         submit_btn = cols[1].form_submit_button("Submit")
         if back_btn:
