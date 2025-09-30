@@ -36,20 +36,28 @@ st.markdown(
         color: #1c1c1c;
       }}
 
-      /* Hide Streamlit/GitHub chrome and badges */
-      [data-testid="stToolbar"] {{ display: none !important; }}
-      [data-testid="stDecoration"] {{ display: none !important; }}
-      [data-testid="viewerBadge"] {{ display: none !important; }}
-      header {{ visibility: hidden; }}
-      #MainMenu {{ visibility: hidden; }}
-      footer {{ visibility: hidden; }}
+      /* Hide Streamlit/GitHub chrome and badges more aggressively */
+      [data-testid="stToolbar"],
+      [data-testid="stDecoration"],
+      [data-testid="viewerBadge"],
+      [data-testid="stStatusWidget"],
+      [data-testid="stHeaderActionMenu"] {{
+        display: none !important;
+      }}
+      header {{ display: none !important; }}  /* collapse instead of just hide */
+      #MainMenu {{ display: none !important; }}
+      footer {{ display: none !important; }}
 
       /* Extra mobile hardening: hide any GitHub/branding links or images on small screens */
       @media (max-width: 768px) {{
-        a[href*="github.com"] {{ display: none !important; }}
-        a[href*="github.com"] img {{ display: none !important; }}
-        a[aria-label*="GitHub"] {{ display: none !important; }}
-        img[alt*="GitHub"] {{ display: none !important; }}
+        a[href*="github.com"],
+        a[href*="github.com"] img,
+        a[aria-label*="GitHub"],
+        img[alt*="GitHub"],
+        a[href*="streamlit.io"],
+        a[href*="streamlit.io"] img {{
+          display: none !important;
+        }}
       }}
 
       .block-container {{
@@ -118,6 +126,11 @@ st.markdown(
           background-color: {BRAND_PRIMARY} !important;
           color: #ffffff !important;
           border: 1px solid {BRAND_PRIMARY} !important;
+
+          /* Make buttons fill their column to avoid overlap/centering issues */
+          width: 100% !important;
+          display: block !important;
+          margin: 0 !important;   /* ensure left-aligned within column */
       }}
       .stButton > button:hover,
       .stForm .stButton > button:hover,
@@ -131,11 +144,9 @@ st.markdown(
           opacity: 0.6 !important;
       }}
 
-      /* Align Back/Next buttons to bottom-left and bottom-right within the button row */
-      /* Right-align the last column's button */
-      [data-testid="stForm"] [data-testid="column"]:nth-child(2) .stButton > button {{
-        display: block !important;
-        margin-left: auto !important;
+      /* Ensure the two buttons row has proper spacing on all screens */
+      [data-testid="stForm"] [data-testid="column"] .stButton {{
+        width: 100%;
       }}
 
       /* Answer zones: light gray by default; green on focus/active */
